@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Listado de Archivos{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'archivos:cargar_archivo' %}" class="btn btn-primary">
+    <i class="bi bi-upload"></i> Cargar Archivo
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-funnel"></i> Filtros</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="fraccion" class="form-label">Fracción</label>
+                <select name="fraccion" id="fraccion" class="form-select">
+                    <option value="">Todas las fracciones</option>
+                    {% for fraccion in fracciones %}
+                        <option value="{{ fraccion.id }}" {% if fraccion.id|stringformat:"s" == fraccion_seleccionada %}selected{% endif %}>
+                            {{ fraccion.numero }} - {{ fraccion.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="año" class="form-label">Año</label>
+                <select name="año" id="año" class="form-select">
+                    <option value="">Todos los años</option>
+                    {% for año in años %}
+                        <option value="{{ año }}" {% if año|stringformat:"s" == año_seleccionado %}selected{% endif %}>
+                            {{ año }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="busqueda" class="form-label">Buscar</label>
+                <input type="text" name="busqueda" id="busqueda" class="form-control" 
+                       placeholder="Nombre del archivo..." value="{{ request.GET.busqueda }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="bi bi-search"></i> Buscar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Resultados -->
+<div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-list-ul"></i> Archivos ({{ archivos|length }} resultados)</h5>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-light" onclick="toggleView('table')" id="tableViewBtn">
+                <i class="bi bi-table"></i> Tabla
+            </button>
+            <button class="btn btn-outline-light" onclick="toggleView('grid')" id="gridViewBtn">
+                <i class="bi bi-grid-3x3"></i> Tarjetas
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if archivos %}
+            <!-- Vista de tabla -->
+            <div id="tableView" class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fracción</th>
+                            <th>Periodo</th>
+                            <th>Archivo</th>
+                            <th>Tamaño</th>
+                            <th>Usuario</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for archivo in archivos %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-primary">{{ archivo.fraccion.numero }}</span>
+                                <small class="d-block text-muted">{{ archivo.fraccion.nombre|truncatewords:3 }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ archivo.año }}</span>
+                                <span class="badge bg-info">{{ archivo.periodo_especifico }}</span>
+                                <small class="d-block text-muted">{{ archivo.get_tipo_periodo_display }}</small>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-file-earmark-pdf text-danger me-2"></i>
+                                    <div>
+                                        <div class="fw-bold">{{ archivo.nombre_original|truncatewords:4 }}</div>
+                                        <small class="text-muted">v{{ archivo.version }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ archivo.get_tamaño_legible }}</td>
+                            <td>
+                                <small>{{ archivo.usuario.get_full_name|default:archivo.usuario.username }}</small>
+                            </td>
+                            <td>
+                                <small>{{ archivo.created_at|date:"d/m/Y" }}</small>
+                                <small class="d-block text-muted">{{ archivo.created_at|time:"H:i" }}</small>
+                            </td>
+                            <td>
+                                {% if archivo.vigente %}
+                                    <span class="badge bg-success">Vigente</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Histórico</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'archivos:ver_archivo' archivo.id %}" 
+                                       class="btn btn-outline-primary" title="Ver archivo">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'archivos:descargar_archivo' archivo.id %}" 
+                                       class="btn btn-outline-success" title="Descargar">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    <a href="{% url 'archivos:historial' archivo.fraccion.id %}" 
+                                       class="btn btn-outline-info" title="Ver historial">
+                                        <i class="bi bi-clock-history"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Vista de tarjetas -->
+            <div id="gridView" class="p-3" style="display: none;">
+                <div class="row">
+                    {% for archivo in archivos %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 border-start border-primary border-4">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge bg-primary">{{ archivo.fraccion.numero }}</span>
+                                    {% if archivo.vigente %}
+                                        <span class="badge bg-success">Vigente</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">v{{ archivo.version }}</span>
+                                    {% endif %}
+                                </div>
+                                <h6 class="card-title">{{ archivo.nombre_original|truncatewords:5 }}</h6>
+                                <p class="card-text">
+                                    <small class="text-muted">
+                                        <i class="bi bi-folder"></i> {{ archivo.fraccion.nombre|truncatewords:4 }}<br>
+                                        <i class="bi bi-calendar"></i> {{ archivo.año }}-{{ archivo.periodo_especifico }}<br>
+                                        <i class="bi bi-hdd"></i> {{ archivo.get_tamaño_legible }}<br>
+                                        <i class="bi bi-clock"></i> {{ archivo.created_at|date:"d/m/Y" }}
+                                    </small>
+                                </p>
+                                <div class="btn-group w-100" role="group">
+                                    <a href="{% url 'archivos:ver_archivo' archivo.id %}" class="btn btn-outline-primary btn-sm">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'archivos:descargar_archivo' archivo.id %}" class="btn btn-outline-success btn-sm">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    <a href="{% url 'archivos:historial' archivo.fraccion.id %}" class="btn btn-outline-info btn-sm">
+                                        <i class="bi bi-clock-history"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Paginación -->
+            {% if is_paginated %}
+            <nav aria-label="Paginación" class="p-3 border-top">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.fraccion %}&fraccion={{ request.GET.fraccion }}{% endif %}{% if request.GET.año %}&año={{ request.GET.año }}{% endif %}">Primera</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.fraccion %}&fraccion={{ request.GET.fraccion }}{% endif %}{% if request.GET.año %}&año={{ request.GET.año }}{% endif %}">Anterior</a>
+                        </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.fraccion %}&fraccion={{ request.GET.fraccion }}{% endif %}{% if request.GET.año %}&año={{ request.GET.año }}{% endif %}">Siguiente</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.fraccion %}&fraccion={{ request.GET.fraccion }}{% endif %}{% if request.GET.año %}&año={{ request.GET.año }}{% endif %}">Última</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-inbox display-4 text-muted"></i>
+                <h5 class="mt-3 text-muted">No se encontraron archivos</h5>
+                <p class="text-muted">No hay archivos que coincidan con los criterios de búsqueda.</p>
+                <a href="{% url 'archivos:cargar_archivo' %}" class="btn btn-primary">
+                    <i class="bi bi-upload"></i> Cargar primer archivo
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleView(viewType) {
+    const tableView = document.getElementById('tableView');
+    const gridView = document.getElementById('gridView');
+    const tableBtn = document.getElementById('tableViewBtn');
+    const gridBtn = document.getElementById('gridViewBtn');
+
+    if (viewType === 'table') {
+        tableView.style.display = 'block';
+        gridView.style.display = 'none';
+        tableBtn.classList.add('active');
+        gridBtn.classList.remove('active');
+    } else {
+        tableView.style.display = 'none';
+        gridView.style.display = 'block';
+        tableBtn.classList.remove('active');
+        gridBtn.classList.add('active');
+    }
+}
+
+// Activar vista de tabla por defecto
+document.getElementById('tableViewBtn').classList.add('active');
+</script>
+{% endblock %}

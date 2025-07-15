@@ -1,0 +1,62 @@
+[
+  {
+    "model": "archivos.fraccion",
+    "pk": 1,
+    "fields": {
+      "numero": "I",
+      "nombre": "Estructura orgánica",
+      "descripcion": "Información sobre la estructura orgánica de la institución",
+      "tipo_usuario_asignado": "transparencia",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "archivos.fraccion",
+    "pk": 2,
+    "fields": {
+      "numero": "II",
+      "nombre": "Organigrama",
+      "descripcion": "Organigrama actualizado de la institución",
+      "tipo_usuario_asignado": "transparencia",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "archivos.fraccion",
+    "pk": 3,
+    "fields": {
+      "numero": "III",
+      "nombre": "Facultades de cada unidad",
+      "descripcion": "Facultades, competencias y responsabilidades de cada unidad administrativa",
+      "tipo_usuario_asignado": "transparencia",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "archivos.fraccion",
+    "pk": 4,
+    "fields": {
+      "numero": "IV",
+      "nombre": "Directorio de servidores públicos",
+      "descripcion": "Directorio actualizado de servidores públicos",
+      "tipo_usuario_asignado": "transparencia",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "archivos.fraccion",
+    "pk": 5,
+    "fields": {
+      "numero": "V",
+      "nombre": "Remuneraciones",
+      "descripcion": "Remuneraciones de servidores públicos",
+      "tipo_usuario_asignado": "recursos_financieros",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]

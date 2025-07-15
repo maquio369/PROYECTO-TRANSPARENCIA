@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Cargar Archivo{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-upload"></i> Cargar Nuevo Archivo</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="uploadForm">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.fraccion.id_for_label }}" class="form-label">{{ form.fraccion.label }}</label>
+                            {{ form.fraccion }}
+                            {% if form.fraccion.errors %}
+                                <div class="invalid-feedback d-block">{{ form.fraccion.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.tipo_periodo.id_for_label }}" class="form-label">{{ form.tipo_periodo.label }}</label>
+                            {{ form.tipo_periodo }}
+                            {% if form.tipo_periodo.errors %}
+                                <div class="invalid-feedback d-block">{{ form.tipo_periodo.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.año.id_for_label }}" class="form-label">{{ form.año.label }}</label>
+                            {{ form.año }}
+                            {% if form.año.errors %}
+                                <div class="invalid-feedback d-block">{{ form.año.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.periodo_especifico.id_for_label }}" class="form-label">{{ form.periodo_especifico.label }}</label>
+                            {{ form.periodo_especifico }}
+                            {% if form.periodo_especifico.errors %}
+                                <div class="invalid-feedback d-block">{{ form.periodo_especifico.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">
+                                <strong>Ejemplos:</strong><br>
+                                • Trimestral: T1, T2, T3, T4<br>
+                                • Bimestral: B1, B2, B3, B4, B5, B6<br>
+                                • Anual: A o ANUAL
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="{{ form.archivo.id_for_label }}" class="form-label">{{ form.archivo.label }}</label>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <i class="bi bi-cloud-upload display-4 text-muted mb-3"></i>
+                            <h5>Selecciona un archivo</h5>
+                            <p class="text-muted">Haz clic para seleccionar tu archivo</p>
+                            {{ form.archivo }}
+                            <small class="text-muted d-block mt-2">
+                                Tamaño máximo: 100 MB | Formatos: PDF, DOC, DOCX, XLS, XLSX
+                            </small>
+                        </div>
+                        {% if form.archivo.errors %}
+                            <div class="invalid-feedback d-block">{{ form.archivo.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors.0 }}
+                        </div>
+                    {% endif %}
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'archivos:dashboard' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-upload"></i> Cargar Archivo
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('uploadForm').addEventListener('submit', function() {
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Cargando...';
+    submitBtn.disabled = true;
+});
+
+// Mostrar nombre del archivo seleccionado
+document.getElementById('{{ form.archivo.id_for_label }}').addEventListener('change', function(e) {
+    const fileName = e.target.files[0]?.name;
+    const fileUploadArea = document.getElementById('fileUploadArea');
+    
+    if (fileName) {
+        fileUploadArea.innerHTML = `
+            <i class="bi bi-file-earmark-check display-4 text-success mb-3"></i>
+            <h5 class="text-success">Archivo seleccionado</h5>
+            <p class="text-muted">${fileName}</p>
+            <div class="mt-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearFile()">
+                    <i class="bi bi-x"></i> Cambiar archivo
+                </button>
+            </div>
+            <small class="text-muted d-block mt-2">
+                Tamaño máximo: 100 MB | Formatos: PDF, DOC, DOCX, XLS, XLSX
+            </small>
+        `;
+    }
+});
+
+// Función para limpiar archivo seleccionado
+function clearFile() {
+    const fileUploadArea = document.getElementById('fileUploadArea');
+    fileUploadArea.innerHTML = `
+        <i class="bi bi-cloud-upload display-4 text-muted mb-3"></i>
+        <h5>Selecciona un archivo</h5>
+        <p class="text-muted">Haz clic para seleccionar tu archivo</p>
+        <input type="file" class="form-control" name="archivo" id="{{ form.archivo.id_for_label }}" accept=".pdf,.doc,.docx,.xls,.xlsx" required>
+        <small class="text-muted d-block mt-2">
+            Tamaño máximo: 100 MB | Formatos: PDF, DOC, DOCX, XLS, XLSX
+        </small>
+    `;
+    
+    // Reactivar el event listener
+    document.getElementById('{{ form.archivo.id_for_label }}').addEventListener('change', arguments.callee);
+}
+</script>
+{% endblock %}

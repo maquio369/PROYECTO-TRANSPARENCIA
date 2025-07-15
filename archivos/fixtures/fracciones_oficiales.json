@@ -1,0 +1,74 @@
+[
+  {
+    "model": "archivos.fraccion",
+    "pk": 1,
+    "fields": {
+      "numero": "I",
+      "nombre": "Marco normativo al Sujeto Obligado",
+      "descripcion": "Fracción I del Artículo 65 - Marco normativo al Sujeto Obligado",
+      "tipo_usuario_asignado": "transparencia",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "archivos.fraccion",
+    "pk": 2,
+    "fields": {
+      "numero": "II",
+      "nombre": "Estructura orgánica",
+      "descripcion": "Fracción II del Artículo 65 - Estructura orgánica",
+      "tipo_usuario_asignado": "transparencia",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "archivos.fraccion",
+    "pk": 3,
+    "fields": {
+      "numero": "III",
+      "nombre": "Las atribuciones, facultades, competencias y funciones de cada área u órgano administrativo",
+      "descripcion": "Fracción III del Artículo 65 - Las atribuciones, facultades, competencias y funciones de cada área u órgano administrativo",
+      "tipo_usuario_asignado": "transparencia",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "archivos.fraccion",
+    "pk": 8,
+    "fields": {
+      "numero": "VIII",
+      "nombre": "Los gastos de representación y viáticos",
+      "descripcion": "Fracción VIII del Artículo 65 - Los gastos de representación y viáticos",
+      "tipo_usuario_asignado": "recursos_financieros",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "archivos.fraccion",
+    "pk": 21,
+    "fields": {
+      "numero": "XXI",
+      "nombre": "Los montos destinados a gastos relativos a comunicación social y publicidad oficial",
+      "descripcion": "Fracción XXI del Artículo 65 - Los montos destinados a gastos relativos a comunicación social y publicidad oficial",
+      "tipo_usuario_asignado": "recursos_financieros",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "archivos.fraccion",
+    "pk": 42,
+    "fields": {
+      "numero": "XLII",
+      "nombre": "Las donaciones hechas a terceros en dinero o en especie",
+      "descripcion": "Fracción XLII del Artículo 65 - Las donaciones hechas a terceros en dinero o en especie",
+      "tipo_usuario_asignado": "recursos_financieros",
+      "activa": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]

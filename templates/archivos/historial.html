@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Historial - {{ fraccion.nombre }}{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'archivos:listado_archivos' %}" class="btn btn-secondary">
+    <i class="bi bi-arrow-left"></i> Volver al Listado
+</a>
+<a href="{% url 'archivos:cargar_archivo' %}" class="btn btn-primary">
+    <i class="bi bi-upload"></i> Cargar Nueva Versión
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Información de la fracción -->
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-folder2-open"></i> 
+            Fracción {{ fraccion.numero }} - {{ fraccion.nombre }}
+        </h5>
+    </div>
+    <div class="card-body">
+        <p class="card-text">{{ fraccion.descripcion }}</p>
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Tipo de Usuario:</strong> {{ fraccion.get_tipo_usuario_asignado_display }}
+            </div>
+            <div class="col-md-6">
+                <strong>Total de versiones:</strong> {{ archivos.count }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Timeline de versiones -->
+{% if archivos %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Historial de Versiones</h5>
+    </div>
+    <div class="card-body">
+        <div class="timeline">
+            {% for archivo in archivos %}
+            <div class="timeline-item {% if archivo.vigente %}timeline-item-current{% endif %}">
+                <div class="timeline-marker">
+                    {% if archivo.vigente %}
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                    {% else %}
+                        <i class="bi bi-circle-fill text-muted"></i>
+                    {% endif %}
+                </div>
+                <div class="timeline-content">
+                    <div class="card {% if archivo.vigente %}border-success{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-file-earmark-pdf text-danger"></i>
+                                    {{ archivo.nombre_original }}
+                                </h6>
+                                <div>
+                                    <span class="badge bg-info">v{{ archivo.version }}</span>
+                                    {% if archivo.vigente %}
+                                        <span class="badge bg-success">Vigente</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="row text-muted mb-3">
+                                <div class="col-md-3">
+                                    <small><i class="bi bi-calendar"></i> {{ archivo.año }}-{{ archivo.periodo_especifico }}</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <small><i class="bi bi-hdd"></i> {{ archivo.get_tamaño_legible }}</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <small><i class="bi bi-person"></i> {{ archivo.usuario.get_full_name|default:archivo.usuario.username }}</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <small><i class="bi bi-clock"></i> {{ archivo.created_at|date:"d/m/Y H:i" }}</small>
+                                </div>
+                            </div>
+
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'archivos:ver_archivo' archivo.id %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-eye"></i> Ver
+                                </a>
+                                <a href="{% url 'archivos:descargar_archivo' archivo.id %}" class="btn btn-outline-success">
+                                    <i class="bi bi-download"></i> Descargar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding: 20px 0;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+    padding-left: 60px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 12px;
+    top: 8px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+}
+
+.timeline-item-current .timeline-marker {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+</style>
+
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-clock-history display-4 text-muted"></i>
+        <h5 class="mt-3 text-muted">No hay historial disponible</h5>
+        <p class="text-muted">Esta fracción aún no tiene archivos cargados.</p>
+        <a href="{% url 'archivos:cargar_archivo' %}" class="btn btn-primary">
+            <i class="bi bi-upload"></i> Cargar primer archivo
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
