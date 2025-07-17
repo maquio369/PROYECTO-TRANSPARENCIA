@@ -9,25 +9,29 @@
 {% endblock %}
 
 {% block content %}
-<!-- Filtros -->
+<!-- Filtros MEJORADOS -->
 <div class="card mb-4">
-    <div class="card-header bg-light">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
         <h6 class="mb-0"><i class="bi bi-funnel"></i> Filtros</h6>
+        <!-- ✅ BOTÓN EXPORTAR EXCEL -->
+        <button type="button" class="btn btn-success btn-sm" onclick="exportarExcel()">
+            <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+        </button>
     </div>
     <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-4">
+        <form method="get" class="row g-3" id="filtrosForm">
+            <div class="col-md-3">
                 <label for="fraccion" class="form-label">Fracción</label>
                 <select name="fraccion" id="fraccion" class="form-select">
                     <option value="">Todas las fracciones</option>
                     {% for fraccion in fracciones %}
                         <option value="{{ fraccion.id }}" {% if fraccion.id|stringformat:"s" == fraccion_seleccionada %}selected{% endif %}>
-                            {{ fraccion.numero }} - {{ fraccion.nombre }}
+                            {{ fraccion.numero }} - {{ fraccion.nombre|truncatewords:3 }}
                         </option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label for="año" class="form-label">Año</label>
                 <select name="año" id="año" class="form-select">
                     <option value="">Todos los años</option>
@@ -36,6 +40,21 @@
                             {{ año }}
                         </option>
                     {% endfor %}
+                </select>
+            </div>
+            <!-- ✅ NUEVO FILTRO DE ESTADO -->
+            <div class="col-md-2">
+                <label for="estado" class="form-label">Estado</label>
+                <select name="estado" id="estado" class="form-select">
+                    <option value="vigente" {% if estado_seleccionado == 'vigente' or not estado_seleccionado %}selected{% endif %}>
+                        Solo Vigentes
+                    </option>
+                    <option value="historico" {% if estado_seleccionado == 'historico' %}selected{% endif %}>
+                        Solo Históricos
+                    </option>
+                    <option value="todos" {% if estado_seleccionado == 'todos' %}selected{% endif %}>
+                        Todos
+                    </option>
                 </select>
             </div>
             <div class="col-md-3">
@@ -52,6 +71,36 @@
                 </div>
             </div>
         </form>
+        
+        <!-- ✅ INFORMACIÓN DE RESULTADOS -->
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i>
+                    Mostrando {{ archivos|length }} archivo{{ archivos|length|pluralize }} 
+                    {% if request.GET.fraccion or request.GET.año or request.GET.estado or request.GET.busqueda %}
+                        (filtrados)
+                    {% endif %}
+                </small>
+            </div>
+            <div class="col-md-6 text-end">
+                <small class="text-muted">
+                    <strong>Filtros activos:</strong>
+                    {% if fraccion_seleccionada %}
+                        <span class="badge bg-primary">Fracción: {{ fraccion_seleccionada }}</span>
+                    {% endif %}
+                    {% if año_seleccionado %}
+                        <span class="badge bg-info">Año: {{ año_seleccionado }}</span>
+                    {% endif %}
+                    {% if estado_seleccionado and estado_seleccionado != 'vigente' %}
+                        <span class="badge bg-secondary">Estado: {{ estado_seleccionado|capfirst }}</span>
+                    {% endif %}
+                    {% if request.GET.busqueda %}
+                        <span class="badge bg-warning">Búsqueda: "{{ request.GET.busqueda }}"</span>
+                    {% endif %}
+                </small>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -70,7 +119,7 @@
     </div>
     <div class="card-body p-0">
         {% if archivos %}
-            <!-- Vista de tabla -->
+            <!-- Vista de tabla MEJORADA -->
             <div id="tableView" class="table-responsive">
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
@@ -87,7 +136,7 @@
                     </thead>
                     <tbody>
                         {% for archivo in archivos %}
-                        <tr>
+                        <tr class="{% if archivo.vigente %}table-success{% else %}table-light{% endif %}">
                             <td>
                                 <span class="badge bg-primary">{{ archivo.fraccion.numero }}</span>
                                 <small class="d-block text-muted">{{ archivo.fraccion.nombre|truncatewords:3 }}</small>
@@ -123,7 +172,7 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="{% url 'archivos:ver_archivo' archivo.id %}" 
+                                    <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" 
                                        class="btn btn-outline-primary" title="Ver archivo">
                                         <i class="bi bi-eye"></i>
                                     </a>
@@ -131,8 +180,15 @@
                                        class="btn btn-outline-success" title="Descargar">
                                         <i class="bi bi-download"></i>
                                     </a>
+                                    <!-- ✅ BOTÓN COPIAR ENLACE EN LISTADO -->
+                                    <button type="button" 
+                                            class="btn btn-outline-info"
+                                            onclick="copiarEnlaceRapido('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
+                                            title="Copiar enlace público">
+                                        <i class="bi bi-link-45deg"></i>
+                                    </button>
                                     <a href="{% url 'archivos:historial' archivo.fraccion.id %}" 
-                                       class="btn btn-outline-info" title="Ver historial">
+                                       class="btn btn-outline-secondary" title="Ver historial">
                                         <i class="bi bi-clock-history"></i>
                                     </a>
                                 </div>
@@ -143,12 +199,12 @@
                 </table>
             </div>
 
-            <!-- Vista de tarjetas -->
+            <!-- Vista de tarjetas MEJORADA -->
             <div id="gridView" class="p-3" style="display: none;">
                 <div class="row">
                     {% for archivo in archivos %}
                     <div class="col-md-6 col-lg-4 mb-3">
-                        <div class="card h-100 border-start border-primary border-4">
+                        <div class="card h-100 border-start border-4 {% if archivo.vigente %}border-success{% else %}border-secondary{% endif %}">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <span class="badge bg-primary">{{ archivo.fraccion.numero }}</span>
@@ -168,13 +224,18 @@
                                     </small>
                                 </p>
                                 <div class="btn-group w-100" role="group">
-                                    <a href="{% url 'archivos:ver_archivo' archivo.id %}" class="btn btn-outline-primary btn-sm">
+                                    <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" class="btn btn-outline-primary btn-sm">
                                         <i class="bi bi-eye"></i>
                                     </a>
                                     <a href="{% url 'archivos:descargar_archivo' archivo.id %}" class="btn btn-outline-success btn-sm">
                                         <i class="bi bi-download"></i>
                                     </a>
-                                    <a href="{% url 'archivos:historial' archivo.fraccion.id %}" class="btn btn-outline-info btn-sm">
+                                    <button type="button" 
+                                            class="btn btn-outline-info btn-sm"
+                                            onclick="copiarEnlaceRapido('{{ archivo.id }}', '{{ archivo.nombre_original }}')">
+                                        <i class="bi bi-link-45deg"></i>
+                                    </button>
+                                    <a href="{% url 'archivos:historial' archivo.fraccion.id %}" class="btn btn-outline-secondary btn-sm">
                                         <i class="bi bi-clock-history"></i>
                                     </a>
                                 </div>
@@ -191,10 +252,10 @@
                 <ul class="pagination justify-content-center mb-0">
                     {% if page_obj.has_previous %}
                         <li class="page-item">
-                            <a class="page-link" href="?page=1{% if request.GET.fraccion %}&fraccion={{ request.GET.fraccion }}{% endif %}{% if request.GET.año %}&año={{ request.GET.año }}{% endif %}">Primera</a>
+                            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Primera</a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.fraccion %}&fraccion={{ request.GET.fraccion }}{% endif %}{% if request.GET.año %}&año={{ request.GET.año }}{% endif %}">Anterior</a>
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Anterior</a>
                         </li>
                     {% endif %}
 
@@ -206,10 +267,10 @@
 
                     {% if page_obj.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.fraccion %}&fraccion={{ request.GET.fraccion }}{% endif %}{% if request.GET.año %}&año={{ request.GET.año }}{% endif %}">Siguiente</a>
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Siguiente</a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.fraccion %}&fraccion={{ request.GET.fraccion }}{% endif %}{% if request.GET.año %}&año={{ request.GET.año }}{% endif %}">Última</a>
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Última</a>
                         </li>
                     {% endif %}
                 </ul>
@@ -232,6 +293,109 @@
 
 {% block scripts %}
 <script>
+// ✅ FUNCIÓN PARA EXPORTAR A EXCEL
+function exportarExcel() {
+    console.log('📊 Iniciando exportación a Excel...');
+    
+    // Obtener parámetros de filtros actuales
+    const form = document.getElementById('filtrosForm');
+    const formData = new FormData(form);
+    
+    // Construir URL con parámetros
+    const params = new URLSearchParams();
+    for (let [key, value] of formData.entries()) {
+        if (value) {
+            params.append(key, value);
+        }
+    }
+    
+    // Agregar parámetro de export
+    params.append('export', 'excel');
+    
+    // Construir URL de export
+    const exportUrl = `{% url 'archivos:listado_archivos' %}?${params.toString()}`;
+    
+    console.log('🔗 URL de exportación:', exportUrl);
+    
+    // Mostrar indicador de carga
+    const btnExport = event.target;
+    const originalHTML = btnExport.innerHTML;
+    btnExport.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Generando...';
+    btnExport.disabled = true;
+    
+    // Crear iframe oculto para descarga
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = exportUrl;
+    document.body.appendChild(iframe);
+    
+    // Restaurar botón después de un tiempo
+    setTimeout(() => {
+        btnExport.innerHTML = originalHTML;
+        btnExport.disabled = false;
+        document.body.removeChild(iframe);
+        
+        // Mostrar notificación
+        mostrarNotificacion('Excel generado exitosamente', 'success');
+    }, 3000);
+}
+
+// ✅ FUNCIÓN PARA COPIAR ENLACE RÁPIDO
+async function copiarEnlaceRapido(archivoId, nombreArchivo) {
+    const enlacePublico = `${window.location.protocol}//${window.location.host}/publico/archivo/${archivoId}/`;
+    
+    try {
+        await navigator.clipboard.writeText(enlacePublico);
+        mostrarNotificacion(`Enlace de "${nombreArchivo}" copiado`, 'success');
+        console.log('✅ Enlace copiado:', enlacePublico);
+    } catch (err) {
+        console.error('❌ Error copiando enlace:', err);
+        mostrarNotificacion('Error al copiar enlace', 'danger');
+    }
+}
+
+// ✅ FUNCIÓN PARA MOSTRAR NOTIFICACIONES
+function mostrarNotificacion(mensaje, tipo = 'info') {
+    const container = obtenerContainerToast();
+    const toastId = 'toast-' + Date.now();
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-bg-${tipo} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-${tipo === 'success' ? 'check-circle-fill' : 'info-circle-fill'} me-2"></i>
+                    ${mensaje}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+// ✅ OBTENER CONTENEDOR DE TOASTS
+function obtenerContainerToast() {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        container.style.zIndex = '1080';
+        document.body.appendChild(container);
+    }
+    return container;
+}
+
+// ✅ FUNCIÓN PARA ALTERNAR VISTAS
 function toggleView(viewType) {
     const tableView = document.getElementById('tableView');
     const gridView = document.getElementById('gridView');
@@ -251,7 +415,15 @@ function toggleView(viewType) {
     }
 }
 
-// Activar vista de tabla por defecto
-document.getElementById('tableViewBtn').classList.add('active');
+// ✅ INICIALIZACIÓN
+document.addEventListener('DOMContentLoaded', function() {
+    // Activar vista de tabla por defecto
+    document.getElementById('tableViewBtn').classList.add('active');
+    
+    // Crear contenedor de toasts
+    obtenerContainerToast();
+    
+    console.log('📋 Listado con exportación inicializado');
+});
 </script>
 {% endblock %}

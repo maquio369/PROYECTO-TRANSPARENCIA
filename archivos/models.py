@@ -260,17 +260,40 @@ class Archivo(models.Model):
                 return False
         return False
 
+# ✅ REEMPLAZAR LA CLASE HistorialAcceso EN archivos/models.py
+
 class HistorialAcceso(models.Model):
-    """Registro de accesos a archivos"""
+    """Registro de accesos a archivos (públicos y privados)"""
     archivo = models.ForeignKey(Archivo, on_delete=models.CASCADE, verbose_name='Archivo')
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Usuario')
+    usuario = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        verbose_name='Usuario',
+        null=True,  # ✅ PERMITIR NULL para accesos anónimos
+        blank=True
+    )
     fecha_acceso = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Acceso')
     ip_address = models.GenericIPAddressField(verbose_name='IP Address', null=True, blank=True)
+    es_acceso_publico = models.BooleanField(default=False, verbose_name='Acceso Público')  # ✅ NUEVO CAMPO
+    user_agent = models.TextField(blank=True, verbose_name='User Agent')  # ✅ NUEVO CAMPO
     
     class Meta:
         verbose_name = 'Historial de Acceso'
         verbose_name_plural = 'Historial de Accesos'
         ordering = ['-fecha_acceso']
+        indexes = [
+            models.Index(fields=['fecha_acceso']),
+            models.Index(fields=['es_acceso_publico']),
+            models.Index(fields=['archivo', 'fecha_acceso']),
+        ]
     
     def __str__(self):
-        return f"{self.usuario.username} - {self.archivo} - {self.fecha_acceso}"
+        usuario_str = self.usuario.username if self.usuario else "Anónimo"
+        tipo_acceso = "Público" if self.es_acceso_publico else "Privado"
+        return f"{usuario_str} - {self.archivo} - {self.fecha_acceso} ({tipo_acceso})"
+    
+    def get_usuario_display(self):
+        """Obtiene el display del usuario de forma segura"""
+        if self.usuario:
+            return self.usuario.get_full_name() or self.usuario.username
+        return "Usuario Anónimo"

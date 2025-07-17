@@ -81,13 +81,25 @@
                                 </div>
                             </div>
 
+                            <!-- ✅ BOTONES SIMPLIFICADOS -->
                             <div class="btn-group btn-group-sm">
-                                <a href="{% url 'archivos:ver_archivo' archivo.id %}" class="btn btn-outline-primary">
+                                <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" 
+                                   class="btn btn-outline-primary"
+                                   title="Ver archivo">
                                     <i class="bi bi-eye"></i> Ver
                                 </a>
-                                <a href="{% url 'archivos:descargar_archivo' archivo.id %}" class="btn btn-outline-success">
+                                <a href="{% url 'archivos:descargar_archivo' archivo.id %}" 
+                                   class="btn btn-outline-success"
+                                   title="Descargar archivo">
                                     <i class="bi bi-download"></i> Descargar
                                 </a>
+                                <!-- ✅ BOTÓN COPIAR ENLACE SIMPLIFICADO -->
+                                <button type="button" 
+                                        class="btn btn-outline-info"
+                                        onclick="copiarEnlaceDirecto('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
+                                        title="Copiar enlace público del archivo">
+                                    <i class="bi bi-link-45deg"></i> Copiar Enlace
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -141,6 +153,23 @@
     50% { transform: scale(1.1); }
     100% { transform: scale(1); }
 }
+
+/* ✅ ESTILOS PARA BOTÓN DE COPIA */
+.btn-copiado {
+    background-color: #198754 !important;
+    color: white !important;
+    border-color: #198754 !important;
+}
+
+/* ✅ ESTILOS PARA NOTIFICACIONES */
+.toast-container {
+    z-index: 1080;
+}
+
+.toast-success {
+    background-color: #d1edff;
+    border-left: 4px solid #0d6efd;
+}
 </style>
 
 {% else %}
@@ -155,4 +184,179 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ✅ FUNCIÓN SIMPLIFICADA PARA COPIAR ENLACE DIRECTO
+async function copiarEnlaceDirecto(archivoId, nombreArchivo) {
+    // Construir URL pública del archivo
+    const enlacePublico = `${window.location.protocol}//${window.location.host}/publico/archivo/${archivoId}/`;
+    
+    console.log(`📋 Copiando enlace público para: ${nombreArchivo}`);
+    console.log(`🔗 URL: ${enlacePublico}`);
+    
+    try {
+        // Copiar al portapapeles usando API moderna
+        await navigator.clipboard.writeText(enlacePublico);
+        
+        // Mostrar notificación de éxito
+        mostrarNotificacionCopia(nombreArchivo, true);
+        
+        console.log('✅ Enlace copiado exitosamente');
+        
+    } catch (err) {
+        console.log('⚠️ Fallback: Intentando método de selección');
+        
+        // Fallback para navegadores antiguos
+        try {
+            // Crear input temporal
+            const inputTemporal = document.createElement('input');
+            inputTemporal.value = enlacePublico;
+            document.body.appendChild(inputTemporal);
+            
+            // Seleccionar y copiar
+            inputTemporal.select();
+            inputTemporal.setSelectionRange(0, 99999); // Para móviles
+            
+            const exitoso = document.execCommand('copy');
+            document.body.removeChild(inputTemporal);
+            
+            if (exitoso) {
+                mostrarNotificacionCopia(nombreArchivo, true);
+                console.log('✅ Enlace copiado (fallback)');
+            } else {
+                throw new Error('execCommand falló');
+            }
+            
+        } catch (fallbackErr) {
+            console.error('❌ Error en todos los métodos de copia:', fallbackErr);
+            mostrarNotificacionCopia(nombreArchivo, false);
+            
+            // Mostrar enlace para copia manual
+            mostrarEnlaceManual(enlacePublico, nombreArchivo);
+        }
+    }
+}
+
+// ✅ MOSTRAR NOTIFICACIÓN DE COPIA
+function mostrarNotificacionCopia(nombreArchivo, exitoso) {
+    const mensaje = exitoso 
+        ? `Enlace de "${nombreArchivo}" copiado al portapapeles`
+        : `Error al copiar enlace de "${nombreArchivo}"`;
+    
+    const icono = exitoso ? 'check-circle-fill' : 'exclamation-triangle-fill';
+    const color = exitoso ? 'success' : 'danger';
+    
+    // Crear toast
+    const toastId = 'toast-' + Date.now();
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-bg-${color} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-${icono} me-2"></i>
+                    ${mensaje}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+                        data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    // Agregar al contenedor
+    const container = obtenerContainerToast();
+    container.insertAdjacentHTML('beforeend', toastHTML);
+    
+    // Mostrar toast
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+        autohide: true,
+        delay: 3000
+    });
+    toast.show();
+    
+    // Limpiar después de ocultar
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+// ✅ MOSTRAR ENLACE PARA COPIA MANUAL (SI FALLA TODO)
+function mostrarEnlaceManual(enlace, nombreArchivo) {
+    const modalId = 'modalEnlaceManual';
+    
+    // Crear modal si no existe
+    if (!document.getElementById(modalId)) {
+        const modalHTML = `
+            <div class="modal fade" id="${modalId}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-link-45deg"></i> Copiar Enlace Manualmente
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>No se pudo copiar automáticamente. Por favor, selecciona y copia el siguiente enlace:</p>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="enlaceManual" readonly>
+                                <button class="btn btn-primary" type="button" onclick="seleccionarEnlaceManual()">
+                                    <i class="bi bi-cursor-text"></i> Seleccionar Todo
+                                </button>
+                            </div>
+                            <small class="text-muted mt-2 d-block">
+                                <strong>Archivo:</strong> <span id="nombreArchivoManual"></span>
+                            </small>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+    
+    // Configurar y mostrar modal
+    document.getElementById('enlaceManual').value = enlace;
+    document.getElementById('nombreArchivoManual').textContent = nombreArchivo;
+    
+    const modal = new bootstrap.Modal(document.getElementById(modalId));
+    modal.show();
+}
+
+// ✅ SELECCIONAR ENLACE EN MODAL MANUAL
+function seleccionarEnlaceManual() {
+    const input = document.getElementById('enlaceManual');
+    input.select();
+    input.setSelectionRange(0, 99999);
+}
+
+// ✅ OBTENER O CREAR CONTENEDOR DE TOASTS
+function obtenerContainerToast() {
+    let container = document.getElementById('toast-container');
+    
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        container.style.zIndex = '1080';
+        document.body.appendChild(container);
+    }
+    
+    return container;
+}
+
+// ✅ INICIALIZACIÓN
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔗 Sistema de enlaces públicos inicializado');
+    
+    // Crear contenedor de toasts
+    obtenerContainerToast();
+    
+    console.log('📋 Funcionalidad de copia directa lista');
+});
+</script>
 {% endblock %}
