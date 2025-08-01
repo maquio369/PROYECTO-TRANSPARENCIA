@@ -4,6 +4,25 @@ from django import forms
 from django.core.exceptions import ValidationError
 from .models import Archivo, Fraccion, PerfilUsuario
 
+
+class MultipleFileInput(forms.ClearableFileInput):
+    """Widget personalizado para múltiples archivos"""
+    allow_multiple_selected = True
+
+class MultipleFileField(forms.FileField):
+    """Campo personalizado para múltiples archivos"""
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = single_file_clean(data, initial)
+        return result
+
 TIPO_PERIODO_CHOICES = [
     ('anual', 'Anual'),
     ('trimestral', 'Trimestral'),
@@ -17,36 +36,43 @@ class ArchivoForm(forms.ModelForm):
     
     class Meta:
         model = Archivo
-        fields = ['fraccion', 'tipo_periodo', 'año', 'periodo_especifico', 'archivo']
-        
-        widgets = {
-            'fraccion': forms.Select(attrs={
-                'class': 'form-control',
-                'required': True
-            }),
-            'tipo_periodo': forms.Select(attrs={
-                'class': 'form-control',
-                'required': True
-            }),
-            'año': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'min': 2020,
-                'max': 2030,
-                'required': True,
-                'value': 2024  # Valor por defecto
-            }),
-            'periodo_especifico': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ej: T1, T2, B1, etc.',
-                'required': True,
-                'maxlength': 20
-            }),
-            'archivo': forms.FileInput(attrs={
+        fields = ['fraccion', 'tipo_periodo', 'año', 'periodo_especifico']
+
+        # Campo personalizado para múltiples archivos
+        archivo = MultipleFileField(
+            widget=MultipleFileInput(attrs={
                 'class': 'form-control',
                 'accept': '.pdf,.doc,.docx,.xls,.xlsx',
+                'multiple': True,
                 'required': True
-            })
-        }
+            }),
+            label='Archivo'
+        )
+        widgets = {
+    'fraccion': forms.Select(attrs={
+        'class': 'form-control',
+        'required': True
+    }),
+    'tipo_periodo': forms.Select(attrs={
+        'class': 'form-control',
+        'required': True
+    }),
+    'año': forms.NumberInput(attrs={
+        'class': 'form-control',
+        'min': 2020,
+        'max': 2030,
+        'required': True,
+        'value': 2024
+    }),
+    'periodo_especifico': forms.TextInput(attrs={
+        'class': 'form-control',
+        'placeholder': 'Ej: T1, T2, B1, etc.',
+        'required': True,
+        'maxlength': 20
+    })
+    # ← Ya no incluir 'archivo' aquí
+}
+        
     
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
@@ -91,64 +117,77 @@ class ArchivoForm(forms.ModelForm):
         self.fields['tipo_periodo'].label = 'Tipo de Periodo'
         self.fields['año'].label = 'Año'
         self.fields['periodo_especifico'].label = 'Periodo Específico'
-        self.fields['archivo'].label = 'Archivo'
+        #self.fields['archivo'].label = 'Archivo'
+
         
         # Agregar help_text útil
         self.fields['año'].help_text = 'Año del periodo que cubre el archivo'
-        self.fields['archivo'].help_text = 'Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX. Tamaño máximo: 100 MB'
+        #self.fields['archivo'].help_text = 'Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX. Tamaño máximo: 100 MB por archivo. Puedes seleccionar múltiples archivos.'
         
         print("=== FIN DEBUG FORMS INIT ===")
+
+    def clean_archivo(self): 
+        archivos = self.cleaned_data.get('archivo')
     
-    def clean_archivo(self):
-        """Validación del archivo subido"""
-        archivo = self.cleaned_data.get('archivo')
+        print(f"=== DEBUG CLEAN_ARCHIVO MÚLTIPLE ===")
+        print(f"Archivos recibidos: {archivos}")
+        print(f"Tipo: {type(archivos)}")
+    
+    # Si no hay archivos
+        if not archivos:
+            print("❌ No se recibieron archivos")
+            raise ValidationError('Debe seleccionar al menos un archivo.')
+    
+    # Si es una lista (múltiples archivos)
+        if isinstance(archivos, list):
+            print(f"📁 Lista de archivos: {len(archivos)} archivos")
+            validated_files = []
+            
+            for i, archivo in enumerate(archivos):
+                print(f"Validando archivo {i+1}: {archivo.name}")
+                validated_files.append(self._validate_single_file(archivo))
         
-        print(f"=== DEBUG CLEAN_ARCHIVO ===")
-        print(f"Archivo recibido: {archivo}")
-        
-        if not archivo:
-            print("❌ No se recibió archivo")
-            raise ValidationError('Debe seleccionar un archivo.')
-        
-        print(f"Nombre: {archivo.name}")
-        print(f"Tamaño: {archivo.size} bytes ({archivo.size / (1024*1024):.2f} MB)")
-        print(f"Content type: {getattr(archivo, 'content_type', 'No disponible')}")
-        
-        # Validar que el archivo tenga contenido
-        if archivo.size == 0:
-            print("❌ Archivo vacío")
-            raise ValidationError('El archivo está vacío.')
-        
-        # Validar tamaño (100 MB)
-        max_size = 104857600  # 100 MB en bytes
-        if archivo.size > max_size:
-            print(f"❌ Archivo muy grande: {archivo.size} > {max_size}")
-            raise ValidationError(f'El archivo no puede superar los 100 MB. Tu archivo: {archivo.size / (1024*1024):.2f} MB')
-        
-        # Validar extensión
-        extensiones_permitidas = ['.pdf', '.doc', '.docx', '.xls', '.xlsx']
-        nombre_archivo = archivo.name.lower()
-        
-        print(f"Validando extensión de: {nombre_archivo}")
-        
-        extension_valida = False
-        for ext in extensiones_permitidas:
-            if nombre_archivo.endswith(ext):
-                extension_valida = True
-                print(f"✅ Extensión válida encontrada: {ext}")
-                break
-        
-        if not extension_valida:
-            print(f"❌ Extensión no válida. Extensiones permitidas: {extensiones_permitidas}")
-            raise ValidationError(
-                f'Solo se permiten archivos PDF, DOC, DOCX, XLS, XLSX. '
-                f'Tu archivo: {archivo.name}'
-            )
-        
-        print(f"✅ Archivo válido: {archivo.name}")
-        print("=== FIN DEBUG CLEAN_ARCHIVO ===")
-        
-        return archivo
+            return validated_files
+    
+        else:
+         print(f"📄 Archivo único: {archivos.name}")
+        return [self._validate_single_file(archivos)]
+
+def _validate_single_file(self, archivo):
+    """Validar un archivo individual"""
+    if not archivo:
+        raise ValidationError('Archivo vacío.')
+    
+    print(f"Validando: {archivo.name}, Tamaño: {archivo.size} bytes")
+    
+    # Validar que el archivo tenga contenido
+    if archivo.size == 0:
+        raise ValidationError(f'El archivo "{archivo.name}" está vacío.')
+    
+    # Validar tamaño (100 MB)
+    max_size = 104857600  # 100 MB en bytes
+    if archivo.size > max_size:
+        raise ValidationError(
+            f'El archivo "{archivo.name}" no puede superar los 100 MB. '
+            f'Tamaño actual: {archivo.size / (1024*1024):.2f} MB'
+        )
+    
+    # Validar extensión
+    extensiones_permitidas = ['.pdf', '.doc', '.docx', '.xls', '.xlsx']
+    nombre_archivo = archivo.name.lower()
+    
+    extension_valida = any(nombre_archivo.endswith(ext) for ext in extensiones_permitidas)
+    
+    if not extension_valida:
+        raise ValidationError(
+            f'El archivo "{archivo.name}" tiene un formato no permitido. '
+            f'Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX'
+        )
+    
+    print(f"✅ Archivo válido: {archivo.name}")
+    return archivo   
+    
+    
     
     def clean_año(self):
         """Validación del año"""
@@ -191,7 +230,7 @@ class ArchivoForm(forms.ModelForm):
         campos_requeridos = {
             'fraccion': fraccion,
             'tipo_periodo': tipo_periodo,
-            'año': año,
+            'año': año,  
             'periodo_especifico': periodo_especifico,
             'archivo': archivo
         }

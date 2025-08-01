@@ -1,53 +1,392 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Sistema Artículo 65</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-{% block title %}Iniciar Sesión - Sistema Artículo 65{% endblock %}
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
 
-{% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-lg border-0">
-                <div class="card-body p-5">
-                    <div class="text-center mb-4">
-                        <i class="bi bi-file-earmark-text display-4 text-primary"></i>
-                        <h3 class="card-title mt-3">Sistema Artículo 65</h3>
-                        <p class="text-muted">Repositorio de Archivos</p>
+        .login-container {
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .login-left {
+            background: linear-gradient(135deg, #1a365d 0%, #2d3748 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-left::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .login-info {
+            position: relative;
+            z-index: 2;
+            color: white;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 2rem;
+            max-width: 450px;
+            margin: 0 auto;
+        }
+
+        .logo-section {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .logo-icon i {
+            font-size: 2rem;
+            color: white;
+        }
+
+        .brand-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: white;
+        }
+
+        .brand-subtitle {
+            font-size: 1.1rem;
+            opacity: 0.8;
+            margin-bottom: 0;
+        }
+
+        .features-list {
+            margin-top: 2rem;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+        }
+
+        .feature-item i {
+            width: 28px;
+            height: 28px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .login-right {
+            background: white;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .login-form-container {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .form-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-subtitle {
+            color: #718096;
+            font-size: 0.95rem;
+            margin-bottom: 0;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #718096;
+            z-index: 2;
+        }
+
+        .form-control-modern {
+            height: 52px;
+            padding: 0 1rem 0 2.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            background: #f7fafc;
+            width: 100%;
+        }
+
+        .form-control-modern:focus {
+            border-color: #3182ce;
+            box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+            background: white;
+            outline: none;
+        }
+
+        .form-control-modern::placeholder {
+            color: #718096;
+        }
+
+        .btn-modern {
+            height: 52px;
+            background: linear-gradient(135deg, #3182ce 0%, #1a365d 100%);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+            width: 100%;
+            color: white;
+            cursor: pointer;
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(49, 130, 206, 0.3);
+            color: white;
+        }
+
+        .btn-icon {
+            margin-left: 0.5rem;
+            transition: transform 0.3s ease;
+        }
+
+        .btn-modern:hover .btn-icon {
+            transform: translateX(2px);
+        }
+
+        .alert-modern {
+            border: none;
+            border-radius: 8px;
+            background: #fed7d7;
+            color: #c53030;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .alert-modern i {
+            margin-right: 0.5rem;
+        }
+
+        .form-footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .help-text {
+            color: #718096;
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        .help-text i {
+            margin-right: 0.5rem;
+        }
+
+        @media (max-width: 991.98px) {
+            .login-left {
+                display: none !important;
+            }
+            
+            .login-right {
+                padding: 3rem 2rem;
+            }
+            
+            .login-form-container {
+                max-width: 500px;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .login-right {
+                padding: 2rem 1rem;
+            }
+            
+            .form-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="container-fluid h-100 p-0">
+            <div class="row h-100 g-0">
+                <!-- Panel izquierdo con información -->
+                <div class="col-lg-7 d-none d-lg-flex login-left">
+                    <div class="login-info">
+                        <div class="logo-section">
+                            <div class="logo-icon">
+                                <i class="bi bi-folder-check"></i>
+                            </div>
+                            <h2 class="brand-title">Repositorio de Archivos</h2>
+                            <p class="brand-subtitle">Obligaciones de Transparencia</p>
+                        </div>
+                        
+                        <div class="features-list">
+                            <div class="feature-item">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <span>Gestión de documentos</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="bi bi-shield-lock"></i>
+                                <span>Acceso seguro y controlado</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="bi bi-file-arrow-down"></i>
+                                <span>Consulta de Archivos</span>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label for="{{ form.username.id_for_label }}" class="form-label">Usuario</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-person"></i></span>
-                                <input type="text" class="form-control" name="username" id="{{ form.username.id_for_label }}" required>
+                <!-- Panel derecho con formulario -->
+                <div class="col-lg-5 login-right">
+                    <div class="login-form-container">
+                        <div class="login-form">
+                            <!-- Header del formulario -->
+                            <div class="form-header">
+                                <h3 class="form-title">Acceso al Sistema</h3>
+                                <p class="form-subtitle">Ingrese sus credenciales para continuar</p>
+                            </div>
+
+                            <!-- Formulario -->
+                            <form method="post" class="mt-4">
+                                {% csrf_token %}
+                                
+                                <div class="form-group">
+                                    <label for="{{ form.username.id_for_label }}" class="form-label">Usuario</label>
+                                    <div class="input-wrapper">
+                                        <i class="bi bi-person input-icon"></i>
+                                        <input type="text" 
+                                               class="form-control-modern" 
+                                               name="username" 
+                                               id="{{ form.username.id_for_label }}" 
+                                               placeholder="Ingrese su usuario"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="{{ form.password.id_for_label }}" class="form-label">Contraseña</label>
+                                    <div class="input-wrapper">
+                                        <i class="bi bi-lock input-icon"></i>
+                                        <input type="password" 
+                                               class="form-control-modern" 
+                                               name="password" 
+                                               id="{{ form.password.id_for_label }}" 
+                                               placeholder="Ingrese su contraseña"
+                                               required>
+                                    </div>
+                                </div>
+
+                                {% if form.errors %}
+                                    <div class="alert-modern">
+                                        <i class="bi bi-exclamation-circle"></i>
+                                        <span>Credenciales incorrectas. Verifique sus datos.</span>
+                                    </div>
+                                {% endif %}
+
+                                <button type="submit" class="btn-modern">
+                                    <span class="btn-text">Iniciar Sesión</span>
+                                    <i class="bi bi-arrow-right btn-icon"></i>
+                                </button>
+                            </form>
+
+                            <!-- Footer del formulario -->
+                            <div class="form-footer">
+                                <p class="help-text">
+                                    <i class="bi bi-info-circle"></i>
+                                    Sistema Administrativo Gubernamental.
+                                </p>
                             </div>
                         </div>
-
-                        <div class="mb-3">
-                            <label for="{{ form.password.id_for_label }}" class="form-label">Contraseña</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                                <input type="password" class="form-control" name="password" id="{{ form.password.id_for_label }}" required>
-                            </div>
-                        </div>
-
-                        {% if form.errors %}
-                            <div class="alert alert-danger">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                Usuario o contraseña incorrectos.
-                            </div>
-                        {% endif %}
-
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
+</body>
+</html>

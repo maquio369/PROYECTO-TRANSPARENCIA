@@ -6,9 +6,10 @@ from django.views.generic import TemplateView, ListView, CreateView
 from django.views import View
 from django.http import HttpResponse, Http404, FileResponse
 from django.urls import reverse_lazy
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Max
 from django.utils import timezone
 from django.db import transaction
+from django.core.exceptions import ValidationError
 import mimetypes
 import os
 from django.core.files.base import ContentFile
@@ -16,13 +17,8 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from pathlib import Path
-from django.contrib import messages
-from django.shortcuts import render, redirect
-from django.db import transaction
 from .models import Archivo, Fraccion, PerfilUsuario, HistorialAcceso
 from .forms import ArchivoForm
-
-
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -68,6 +64,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         
         return context
 
+
 class CargarArchivoView(LoginRequiredMixin, CreateView):
     """Vista para cargar archivos"""
     model = Archivo
@@ -79,19 +76,15 @@ class CargarArchivoView(LoginRequiredMixin, CreateView):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
         return kwargs
-    
+
     def form_valid(self, form):
-        """
-        Manejo mejorado de la subida de archivos con mejor debug y transacciones
-        """
         # DEBUG: Imprimir datos recibidos
-        print("=== DEBUG FORMULARIO ===")
+        print("=== DEBUG FORMULARIO MÚLTIPLES ARCHIVOS ===")
         print(f"POST data: {self.request.POST}")
         print(f"FILES data: {self.request.FILES}")
         print(f"Form cleaned data: {form.cleaned_data}")
         print(f"Usuario: {self.request.user}")
-        print("========================")
-        
+    
         # Verificar perfil de usuario
         try:
             perfil = self.request.user.perfilusuario
@@ -99,84 +92,138 @@ class CargarArchivoView(LoginRequiredMixin, CreateView):
         except PerfilUsuario.DoesNotExist:
             messages.error(self.request, 'Tu usuario no tiene un perfil asignado. Contacta al administrador.')
             return self.form_invalid(form)
-        
-        # Verificar si hay archivo
-        if 'archivo' not in form.cleaned_data or not form.cleaned_data['archivo']:
-            print("❌ No se recibió archivo en form.cleaned_data")
+    
+        # Obtener múltiples archivos
+        archivos_subidos = self.request.FILES.getlist('archivo')
+        print(f"📁 Archivos recibidos: {len(archivos_subidos)}")
+    
+        if not archivos_subidos:
+            print("❌ No se recibieron archivos")
             messages.error(self.request, 'No se recibió ningún archivo.')
             return self.form_invalid(form)
-        
-        archivo_file = form.cleaned_data['archivo']
-        print(f"✅ Archivo recibido: {archivo_file.name}, Tamaño: {archivo_file.size} bytes")
-        
-        # Validar tamaño del archivo (100 MB)
-        if archivo_file.size > 104857600:  # 100 MB en bytes
-            print(f"❌ Archivo muy grande: {archivo_file.size} bytes")
-            messages.error(self.request, 'El archivo no puede superar los 100 MB.')
-            return self.form_invalid(form)
-        
+    
         # Verificar que la fracción corresponde al usuario
         fraccion = form.cleaned_data['fraccion']
         if fraccion.tipo_usuario_asignado != perfil.tipo_usuario:
             print(f"❌ Fracción no permitida para usuario: {fraccion.tipo_usuario_asignado} != {perfil.tipo_usuario}")
             messages.error(self.request, 'No tienes permisos para cargar archivos en esta fracción.')
             return self.form_invalid(form)
-        
-        # Usar transacción atómica para evitar problemas de concurrencia
+    
+        # PROCESAR CADA ARCHIVO
+        archivos_creados = []
+        archivos_con_error = []
+    
+           # Usar transacción atómica para todos los archivos
         try:
             with transaction.atomic():
-                # Asignar datos al formulario
-                form.instance.usuario = self.request.user
-                
-                # Calcular versión
+                # 🔥 PASO 1: Marcar archivos anteriores como no vigentes ANTES de crear nuevos
                 archivos_existentes = Archivo.objects.filter(
-                    fraccion=form.instance.fraccion,
-                    año=form.instance.año,
-                    periodo_especifico=form.instance.periodo_especifico
-                ).select_for_update()  # Lock para evitar race conditions
-                
+                    fraccion=form.cleaned_data['fraccion'],
+                    año=form.cleaned_data['año'],
+                    periodo_especifico=form.cleaned_data['periodo_especifico'],
+                    vigente=True  # ← SOLO los que están vigentes
+                )
+
+                nueva_version = 1
                 if archivos_existentes.exists():
-                    ultima_version = archivos_existentes.order_by('-version').first().version
-                    form.instance.version = ultima_version + 1
-                    print(f"📝 Nueva versión calculada: {form.instance.version}")
-                    
-                    # Marcar archivos anteriores como no vigentes
-                    archivos_existentes.update(vigente=False)
+                    ultima_version = archivos_existentes.aggregate(
+                        max_version=Max('version')
+                    )['max_version'] or 0
+                    nueva_version = ultima_version + 1
+                    print(f"📝 Nueva versión calculada: {nueva_version}")
+
+                    # ⚡ MARCAR COMO NO VIGENTES ANTES DE CREAR NUEVOS
+                    cantidad_marcados = archivos_existentes.update(vigente=False)
+                    print(f"🔄 {cantidad_marcados} archivos marcados como no vigentes")
                 else:
-                    form.instance.version = 1
-                    print("📝 Primera versión del archivo")
-                
-                # Establecer como vigente
-                form.instance.vigente = True
-                
-                # Guardar el archivo
-                print("💾 Intentando guardar archivo...")
-                archivo_instance = form.save()
-                
-                print(f"✅ Archivo guardado exitosamente con ID: {archivo_instance.id}")
-                print(f"📁 Ruta del archivo: {archivo_instance.archivo.path}")
-                
-                # Verificar que el archivo se guardó físicamente
-                if os.path.exists(archivo_instance.archivo.path):
-                    print(f"✅ Archivo físico confirmado en: {archivo_instance.archivo.path}")
-                else:
-                    print(f"❌ Archivo físico NO encontrado en: {archivo_instance.archivo.path}")
-                
+                    print("📝 Primera versión para esta combinación")
+
+                # 🔥 PASO 2: CREAR TODOS LOS ARCHIVOS NUEVOS COMO VIGENTES
+                archivos_creados = []
+                archivos_con_error = []
+
+                for i, archivo_file in enumerate(archivos_subidos):
+                    print(f"\n--- Procesando archivo {i+1}/{len(archivos_subidos)}: {archivo_file.name} ---")
+
+                    try:
+                        # Validar cada archivo individualmente
+                        if archivo_file.size > 104857600:
+                            raise ValidationError(f'Archivo "{archivo_file.name}" muy grande: {archivo_file.size/1024/1024:.1f} MB')
+
+                        if archivo_file.size == 0:
+                            raise ValidationError(f'Archivo "{archivo_file.name}" está vacío')
+
+                        # Validar extensión
+                        extensiones_permitidas = ['.pdf', '.doc', '.docx', '.xls', '.xlsx']
+                        nombre_archivo = archivo_file.name.lower()
+                        if not any(nombre_archivo.endswith(ext) for ext in extensiones_permitidas):
+                            raise ValidationError(f'Archivo "{archivo_file.name}" tiene formato no permitido')
+
+                        # 🎯 CREAR ARCHIVO - TODOS VIGENTES
+                        archivo_instance = Archivo(
+                            fraccion=form.cleaned_data['fraccion'],
+                            usuario=self.request.user,
+                            tipo_periodo=form.cleaned_data['tipo_periodo'],
+                            año=form.cleaned_data['año'],
+                            periodo_especifico=form.cleaned_data['periodo_especifico'],
+                            archivo=archivo_file,
+                            nombre_original=archivo_file.name,
+                            tamaño=archivo_file.size,
+                            vigente=True,  # ✅ TODOS VIGENTES
+                            version=nueva_version  # ✅ MISMA VERSIÓN PARA TODOS
+                        )
+
+                        # Guardar archivo
+                        archivo_instance.save()
+                        archivos_creados.append(archivo_instance)
+
+                        print(f"✅ Archivo guardado como VIGENTE: {archivo_instance.nombre_original} (v{nueva_version})")
+
+                    except ValidationError as e:
+                        print(f"❌ Error validando {archivo_file.name}: {e}")
+                        archivos_con_error.append(f"{archivo_file.name}: {e}")
+                    except Exception as e:
+                        print(f"❌ Error inesperado con {archivo_file.name}: {e}")
+                        archivos_con_error.append(f"{archivo_file.name}: Error inesperado")
+
+                # Si hay errores, lanzar excepción para hacer rollback
+                if archivos_con_error:
+                    raise ValidationError("Errores en algunos archivos")
+
+                print(f"🎉 RESUMEN: {len(archivos_creados)} archivos creados como VIGENTES (versión {nueva_version})")
+
+        except Exception as e:
+            print(f"❌ Error en transacción: {e}")
+        
+            # Mostrar errores específicos
+            if archivos_con_error:
+                for error in archivos_con_error:
+                    messages.error(self.request, f"❌ {error}")
+            else:
+                messages.error(self.request, f'Error al guardar archivos: {e}')
+        
+            return self.form_invalid(form)
+    
+        # MOSTRAR RESULTADO EXITOSO
+        if archivos_creados:
+            if len(archivos_creados) == 1:
                 messages.success(
                     self.request, 
-                    f'Archivo "{archivo_file.name}" cargado exitosamente como versión {archivo_instance.version}.'
+                    f'✅ Archivo "{archivos_creados[0].nombre_original}" cargado exitosamente como versión {nueva_version}.'
                 )
-                
-                return redirect(self.success_url)
-                
-        except Exception as e:
-            print(f"❌ Error en transacción: {type(e).__name__}: {e}")
-            import traceback
-            print(f"Traceback completo:")
-            traceback.print_exc()
-            
-            messages.error(self.request, f'Error al guardar el archivo: {e}')
-            return self.form_invalid(form)
+            else:
+                messages.success(
+                    self.request, 
+                    f'✅ {len(archivos_creados)} archivos cargados exitosamente como versión {nueva_version}.'
+                )
+                # Mostrar lista de archivos cargados
+                for archivo in archivos_creados:
+                    messages.info(self.request, f"📁 {archivo.nombre_original}")
+    
+        print(f"✅ Proceso completado: {len(archivos_creados)} archivos creados")
+        print("=== FIN DEBUG MÚLTIPLES ARCHIVOS ===")
+    
+        return redirect(self.success_url)
     
     def form_invalid(self, form):
         """Manejo mejorado de formularios inválidos"""
@@ -195,6 +242,7 @@ class CargarArchivoView(LoginRequiredMixin, CreateView):
         
         return super().form_invalid(form)
 
+
 class ListadoArchivosView(LoginRequiredMixin, ListView):
     """Vista para listar archivos con exportación a Excel"""
     model = Archivo
@@ -203,7 +251,7 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
     paginate_by = 20
     
     def get(self, request, *args, **kwargs):
-        # ✅ VERIFICAR SI ES UNA SOLICITUD DE EXPORTACIÓN
+        # VERIFICAR SI ES UNA SOLICITUD DE EXPORTACIÓN
         if request.GET.get('export') == 'excel':
             return self.exportar_excel(request)
         
@@ -223,7 +271,7 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
             fraccion__tipo_usuario_asignado=tipo_usuario
         ).select_related('fraccion', 'usuario').order_by('-created_at')
         
-        # ✅ FILTRO POR ESTADO (VIGENTE/HISTÓRICO/TODOS)
+        # FILTRO POR ESTADO (VIGENTE/HISTÓRICO/TODOS)
         estado = self.request.GET.get('estado', 'vigente')  # Por defecto solo vigentes
         
         if estado == 'vigente':
@@ -285,13 +333,13 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
     
     def exportar_excel(self, request):
         """
-        ✅ FUNCIÓN OPTIMIZADA PARA EXPORTAR A EXCEL - AGRUPADA POR FRACCIÓN
+        FUNCIÓN OPTIMIZADA PARA EXPORTAR A EXCEL - AGRUPADA POR FRACCIÓN
         """
         print("📊 Iniciando exportación a Excel agrupada...")
         
         # Obtener queryset con los mismos filtros pero ORDENADO POR FRACCIÓN
         queryset = self.get_queryset().order_by(
-            'fraccion__numero',  # ✅ PRIMERO por número de fracción
+            'fraccion__numero',  # PRIMERO por número de fracción
             'año',               # Luego por año  
             'periodo_especifico', # Luego por periodo
             '-created_at'        # Finalmente por fecha (más recientes primero)
@@ -309,7 +357,7 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
         ws = wb.active
         ws.title = "Archivos Artículo 65"
         
-        # ✅ CONFIGURAR ESTILOS
+        # CONFIGURAR ESTILOS
         header_font = Font(bold=True, color="FFFFFF", size=12)
         header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
         header_alignment = Alignment(horizontal="center", vertical="center")
@@ -325,10 +373,10 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
             bottom=Side(style='thin')
         )
         
-        # ✅ ENCABEZADOS OPTIMIZADOS (SIN: Estado, Versión, Tamaño, Usuario, Periodo)
+        # ENCABEZADOS OPTIMIZADOS
         headers = [
-            'Número',           # ✅ PRIMERA COLUMNA
-            'Fracción',         # ✅ SEGUNDA COLUMNA  
+            'Número',           # PRIMERA COLUMNA
+            'Fracción',         # SEGUNDA COLUMNA  
             'Año',
             'Tipo Periodo',
             'Archivo',
@@ -344,12 +392,12 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
             cell.alignment = header_alignment
             cell.border = border
         
-        # ✅ ESCRIBIR DATOS AGRUPADOS POR FRACCIÓN
+        # ESCRIBIR DATOS AGRUPADOS POR FRACCIÓN
         row_num = 2
         current_fraccion = None
         
         for archivo in queryset:
-            # ✅ AGREGAR SEPARADOR CUANDO CAMBIA LA FRACCIÓN
+            # AGREGAR SEPARADOR CUANDO CAMBIA LA FRACCIÓN
             if current_fraccion != archivo.fraccion.numero:
                 if current_fraccion is not None:  # No agregar separador antes de la primera fracción
                     # Fila vacía como separador
@@ -373,7 +421,7 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
             # Generar enlace público
             enlace_publico = f"{request.scheme}://{request.get_host()}/publico/archivo/{archivo.id}/"
             
-            # ✅ DATOS OPTIMIZADOS DE LA FILA (SIN campos eliminados)
+            # DATOS OPTIMIZADOS DE LA FILA
             row_data = [
                 archivo.fraccion.numero,                                    # Número (PRIMERA COLUMNA)
                 archivo.fraccion.nombre,                                    # Fracción (SEGUNDA COLUMNA)
@@ -389,7 +437,7 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
                 cell = ws.cell(row=row_num, column=col, value=value)
                 cell.border = border
                 
-                # ✅ COLOREAR FILAS ALTERNADAS POR FRACCIÓN
+                # COLOREAR FILAS ALTERNADAS POR FRACCIÓN
                 if archivo.vigente:
                     # Verde claro para archivos vigentes
                     cell.fill = PatternFill(start_color="E8F5E8", end_color="E8F5E8", fill_type="solid")
@@ -399,7 +447,7 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
             
             row_num += 1
         
-        # ✅ AJUSTAR ANCHO DE COLUMNAS OPTIMIZADO
+        # AJUSTAR ANCHO DE COLUMNAS OPTIMIZADO
         column_widths = [
             12,  # Número
             45,  # Fracción (más ancho para nombres largos)
@@ -413,7 +461,7 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
         
-        # ✅ AGREGAR INFORMACIÓN DEL REPORTE (más abajo para no interferir)
+        # AGREGAR INFORMACIÓN DEL REPORTE
         info_row = row_num + 3
         
         # Título de información
@@ -431,7 +479,7 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
             ("Total de archivos:", queryset.count()),
         ]
         
-        # ✅ AGREGAR FILTROS APLICADOS
+        # AGREGAR FILTROS APLICADOS
         filtros_info = []
         if request.GET.get('fraccion'):
             try:
@@ -459,10 +507,9 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
             ws.cell(row=info_row, column=2, value=str(value))
             info_row += 1
         
-        # ✅ AGREGAR ESTADÍSTICAS DE FRACCIONES
+        # AGREGAR ESTADÍSTICAS DE FRACCIONES
         if queryset.count() > 0:
             # Contar archivos por fracción
-            from django.db.models import Count
             stats_fraccion = queryset.values('fraccion__numero', 'fraccion__nombre').annotate(
                 total=Count('id')
             ).order_by('fraccion__numero')
@@ -477,7 +524,7 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
                     ws.cell(row=info_row, column=2, value=f"{stat['total']} archivo(s)")
                     info_row += 1
         
-        # ✅ PREPARAR RESPUESTA HTTP
+        # PREPARAR RESPUESTA HTTP
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
@@ -509,10 +556,6 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
         print(f"📁 Fracciones incluidas: {len(set(a.fraccion.numero for a in queryset))}")
         
         return response
-    
-    
-
-
 
 
 class HistorialView(LoginRequiredMixin, ListView):
@@ -546,6 +589,7 @@ class HistorialView(LoginRequiredMixin, ListView):
         fraccion_id = self.kwargs['fraccion_id']
         context['fraccion'] = get_object_or_404(Fraccion, id=fraccion_id)
         return context
+
 
 class DescargarArchivoView(LoginRequiredMixin, View):
     """Vista para descargar archivos con URL pública"""
@@ -594,6 +638,7 @@ class DescargarArchivoView(LoginRequiredMixin, View):
             ip = request.META.get('REMOTE_ADDR')
         return ip
 
+
 class VerArchivoView(LoginRequiredMixin, View):
     """Vista para visualizar archivos en el navegador"""
     
@@ -641,6 +686,7 @@ class VerArchivoView(LoginRequiredMixin, View):
             ip = request.META.get('REMOTE_ADDR')
         return ip
 
+
 class EstadisticasView(LoginRequiredMixin, TemplateView):
     """Vista para mostrar estadísticas"""
     template_name = 'archivos/estadisticas.html'
@@ -682,10 +728,6 @@ class EstadisticasView(LoginRequiredMixin, TemplateView):
         
         return context
 
-
-        # ✅ AGREGAR ESTAS VISTAS AL FINAL DE TU ARCHIVO archivos/views.py
-
-# ✅ REEMPLAZAR TODO EL FINAL DE TU views.py DESDE DONDE APARECE "class VerArchivoPublicoView"
 
 class VerArchivoPublicoView(View):
     """Vista PÚBLICA para visualizar archivos sin autenticación"""
@@ -742,6 +784,7 @@ class VerArchivoPublicoView(View):
             ip = request.META.get('REMOTE_ADDR')
         return ip
 
+
 class DescargarArchivoPublicoView(View):
     """Vista PÚBLICA para descargar archivos sin autenticación"""
     
@@ -792,4 +835,3 @@ class DescargarArchivoPublicoView(View):
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
-

@@ -62,19 +62,28 @@
                         </div>
                     </div>
 
-                    <!-- ✅ CAMPO DE ARCHIVO SIMPLIFICADO SIN JAVASCRIPT COMPLEJO -->
+                    <!-- ✅ CAMPO DE ARCHIVO CORREGIDO -->
                     <div class="mb-4">
-                        <label for="{{ form.archivo.id_for_label }}" class="form-label">{{ form.archivo.label }} *</label>
+                        <label for="id_archivo" class="form-label">Archivo *</label>
                         
                         <!-- Input de archivo directo -->
-                        {{ form.archivo }}
+                        <input type="file" 
+                               name="archivo" 
+                               id="id_archivo"
+                               class="form-control" 
+                               accept=".pdf,.doc,.docx,.xls,.xlsx" 
+                               multiple 
+                               required>
                         
-                        <!-- Información del archivo seleccionado -->
+                        <!-- Información de los archivos seleccionados -->
                         <div id="fileInfo" class="mt-2" style="display: none;">
                             <div class="alert alert-info">
-                                <i class="bi bi-file-earmark-check"></i>
-                                <strong>Archivo seleccionado:</strong> <span id="fileName"></span>
-                                <br><strong>Tamaño:</strong> <span id="fileSize"></span>
+                                <i class="bi bi-files"></i>
+                                <strong>Archivos seleccionados:</strong> <span id="fileCount"></span>
+                                <div id="fileList" class="mt-2"></div>
+                                <div class="mt-2">
+                                    <strong>Tamaño total:</strong> <span id="totalSize"></span>
+                                </div>
                             </div>
                         </div>
                         
@@ -92,7 +101,7 @@
                         
                         <small class="text-muted d-block mt-2">
                             <i class="bi bi-info-circle"></i>
-                            Tamaño máximo: 100 MB | Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX
+                            Tamaño máximo: 100 MB por archivo | Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX | Múltiples archivos permitidos
                         </small>
                     </div>
 
@@ -138,64 +147,108 @@
 
 {% block scripts %}
 <script>
-// ✅ JAVASCRIPT SIMPLIFICADO Y FUNCIONAL
+// ✅ JAVASCRIPT PARA MÚLTIPLES ARCHIVOS - CORREGIDO
 document.addEventListener('DOMContentLoaded', function() {
-    const fileInput = document.getElementById('{{ form.archivo.id_for_label }}');
+    const fileInput = document.getElementById('id_archivo');
     const fileInfo = document.getElementById('fileInfo');
-    const fileName = document.getElementById('fileName');
-    const fileSize = document.getElementById('fileSize');
+    const fileCount = document.getElementById('fileCount');
+    const fileList = document.getElementById('fileList');
+    const totalSize = document.getElementById('totalSize');
     const uploadForm = document.getElementById('uploadForm');
     const submitBtn = document.getElementById('submitBtn');
 
     // Debug: Verificar que los elementos existen
-    console.log('🔍 Debug elementos:', {
+    console.log('🔍 Debug elementos múltiples archivos:', {
         fileInput: !!fileInput,
         fileInfo: !!fileInfo,
-        fileName: !!fileName,
-        fileSize: !!fileSize
+        fileCount: !!fileCount,
+        fileList: !!fileList,
+        totalSize: !!totalSize
     });
 
-    // Manejar selección de archivo
+    // Manejar selección de múltiples archivos
     if (fileInput) {
         fileInput.addEventListener('change', function(e) {
-            console.log('📁 Archivo seleccionado:', e.target.files);
+            console.log('📁 Archivos seleccionados:', e.target.files);
             
-            if (e.target.files && e.target.files[0]) {
-                const file = e.target.files[0];
+            if (e.target.files && e.target.files.length > 0) {
+                const files = Array.from(e.target.files);
+                let totalSizeBytes = 0;
+                let validFiles = [];
+                let invalidFiles = [];
                 
-                // Mostrar información del archivo
-                if (fileName) fileName.textContent = file.name;
-                if (fileSize) {
-                    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                    fileSize.textContent = `${sizeMB} MB`;
+                // Validar cada archivo
+                files.forEach(file => {
+                    // Validar tamaño (100 MB por archivo)
+                    if (file.size > 104857600) {
+                        invalidFiles.push(`${file.name}: Muy grande (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+                        return;
+                    }
+                    
+                    // Validar extensión
+                    const allowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx'];
+                    const fileName = file.name.toLowerCase();
+                    const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+                    
+                    if (!isValidExtension) {
+                        invalidFiles.push(`${file.name}: Formato no permitido`);
+                        return;
+                    }
+                    
+                    validFiles.push(file);
+                    totalSizeBytes += file.size;
+                });
+                
+                // Mostrar archivos válidos
+                if (validFiles.length > 0) {
+                    // Actualizar contador
+                    fileCount.textContent = `${validFiles.length} archivo${validFiles.length > 1 ? 's' : ''}`;
+                    
+                    // Crear lista de archivos
+                    const listHTML = validFiles.map(file => {
+                        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                        return `
+                            <div class="d-flex justify-content-between align-items-center border-bottom py-1">
+                                <span class="text-truncate me-2">
+                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                    ${file.name}
+                                </span>
+                                <small class="text-muted">${sizeMB} MB</small>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    fileList.innerHTML = listHTML;
+                    
+                    // Mostrar tamaño total
+                    const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(2);
+                    totalSize.textContent = `${totalSizeMB} MB`;
+                    
+                    // Mostrar información
+                    fileInfo.style.display = 'block';
+                    
+                    console.log(`✅ ${validFiles.length} archivos válidos cargados`);
+                } else {
+                    fileInfo.style.display = 'none';
                 }
-                if (fileInfo) fileInfo.style.display = 'block';
                 
-                console.log('✅ Archivo cargado:', file.name, file.size, 'bytes');
-                
-                // Validación básica en el cliente
-                if (file.size > 104857600) { // 100 MB
-                    alert('⚠️ El archivo es muy grande (máximo 100 MB)');
-                    fileInput.value = '';
-                    if (fileInfo) fileInfo.style.display = 'none';
-                    return;
-                }
-                
-                // Validar extensión
-                const allowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx'];
-                const fileName = file.name.toLowerCase();
-                const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
-                
-                if (!isValidExtension) {
-                    alert('⚠️ Formato de archivo no permitido. Use: PDF, DOC, DOCX, XLS, XLSX');
-                    fileInput.value = '';
-                    if (fileInfo) fileInfo.style.display = 'none';
-                    return;
+                // Mostrar errores si los hay
+                if (invalidFiles.length > 0) {
+                    alert(`⚠️ Archivos con problemas:\n${invalidFiles.join('\n')}`);
+                    
+                    // Filtrar solo archivos válidos en el input
+                    const dt = new DataTransfer();
+                    validFiles.forEach(file => dt.items.add(file));
+                    fileInput.files = dt.files;
+                    
+                    if (validFiles.length === 0) {
+                        fileInfo.style.display = 'none';
+                    }
                 }
                 
             } else {
-                if (fileInfo) fileInfo.style.display = 'none';
-                console.log('❌ No se seleccionó archivo');
+                fileInfo.style.display = 'none';
+                console.log('❌ No se seleccionaron archivos');
             }
         });
     }
@@ -203,39 +256,44 @@ document.addEventListener('DOMContentLoaded', function() {
     // Manejar envío del formulario
     if (uploadForm) {
         uploadForm.addEventListener('submit', function(e) {
-            console.log('📤 Enviando formulario...');
+            console.log('📤 Enviando formulario con múltiples archivos...');
             
-            // Verificar que hay archivo seleccionado
-            if (!fileInput.files || !fileInput.files[0]) {
+            // Verificar que hay archivos seleccionados
+            if (!fileInput.files || fileInput.files.length === 0) {
                 e.preventDefault();
-                alert('⚠️ Debe seleccionar un archivo antes de enviar');
+                alert('⚠️ Debe seleccionar al menos un archivo antes de enviar');
                 return false;
             }
             
             // Deshabilitar botón y mostrar loading
             if (submitBtn) {
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Cargando...';
+                submitBtn.innerHTML = `
+                    <span class="spinner-border spinner-border-sm" role="status"></span> 
+                    Cargando ${fileInput.files.length} archivo${fileInput.files.length > 1 ? 's' : ''}...
+                `;
                 submitBtn.disabled = true;
             }
             
-            console.log('✅ Formulario enviado con archivo:', fileInput.files[0].name);
+            console.log(`✅ Formulario enviado con ${fileInput.files.length} archivos`);
         });
     }
 });
 
-// Debug adicional para verificar el formulario antes del envío
-function debugForm() {
-    const form = document.getElementById('uploadForm');
-    const formData = new FormData(form);
+// Debug adicional para verificar archivos antes del envío
+function debugMultipleFiles() {
+    const fileInput = document.getElementById('id_archivo');
+    const files = Array.from(fileInput.files);
     
-    console.log('🔍 DEBUG FORMULARIO:');
-    for (let [key, value] of formData.entries()) {
-        if (value instanceof File) {
-            console.log(`${key}:`, value.name, value.size, 'bytes');
-        } else {
-            console.log(`${key}:`, value);
-        }
-    }
+    console.log('🔍 DEBUG MÚLTIPLES ARCHIVOS:');
+    console.log(`Total archivos: ${files.length}`);
+    
+    files.forEach((file, index) => {
+        console.log(`Archivo ${index + 1}:`, {
+            name: file.name,
+            size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+            type: file.type
+        });
+    });
 }
 </script>
 {% endblock %}

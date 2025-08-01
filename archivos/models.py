@@ -122,14 +122,8 @@ class Archivo(models.Model):
             models.Index(fields=['fraccion', 'año', 'periodo_especifico']),
             models.Index(fields=['vigente']),
             models.Index(fields=['created_at']),
-        ]
-        # Constraint para evitar duplicados
-        constraints = [
-            models.UniqueConstraint(
-                fields=['fraccion', 'año', 'periodo_especifico', 'version'],
-                name='unique_archivo_version'
-            )
-        ]
+    ]
+   
     
     def __str__(self):
         return f"{self.fraccion.numero} - {self.año}-{self.periodo_especifico} - v{self.version}"
@@ -152,84 +146,38 @@ class Archivo(models.Model):
             if self.archivo.size == 0:
                 raise ValidationError({'archivo': 'El archivo no puede estar vacío'})
     
+    
     def save(self, *args, **kwargs):
-        """
-        Método save mejorado que evita problemas de concurrencia
-        y maneja correctamente el control de versiones
-        """
-        print(f"=== DEBUG MODEL SAVE ===")
-        print(f"Guardando archivo: {self}")
-        print(f"Tiene archivo: {bool(self.archivo)}")
-        print(f"PK existente: {self.pk}")
-        
-        # Establecer nombre original y tamaño si hay archivo
+
         if self.archivo:
             if not self.nombre_original:
                 self.nombre_original = self.archivo.name
             self.tamaño = self.archivo.size
             print(f"Nombre original: {self.nombre_original}")
             print(f"Tamaño: {self.tamaño} bytes")
-        
-        # Solo manejar versiones si es un archivo vigente y nuevo
-        if self.vigente and not self.pk:
-            print("📝 Archivo nuevo y vigente - manejando versiones")
-            
-            # Usar transacción para evitar race conditions
-            with transaction.atomic():
-                # Buscar archivos existentes para esta combinación
-                archivos_existentes = Archivo.objects.filter(
-                    fraccion=self.fraccion,
-                    año=self.año,
-                    periodo_especifico=self.periodo_especifico
-                ).select_for_update()
-                
-                if archivos_existentes.exists():
-                    print(f"📂 Encontrados {archivos_existentes.count()} archivos existentes")
-                    
-                    # Obtener la última versión
-                    ultima_version = archivos_existentes.aggregate(
-                        max_version=models.Max('version')
-                    )['max_version'] or 0
-                    
-                    # Asignar nueva versión
-                    if not self.version or self.version <= ultima_version:
-                        self.version = ultima_version + 1
-                    
-                    print(f"📋 Nueva versión asignada: {self.version}")
-                    
-                    # Marcar archivos anteriores como no vigentes
-                    archivos_existentes.update(vigente=False)
-                    print("🔄 Archivos anteriores marcados como no vigentes")
-                else:
-                    print("📄 Primer archivo para esta combinación")
-                    if not self.version:
-                        self.version = 1
-        
+
         try:
-            # Validar antes de guardar
-            self.full_clean()
-            
-            # Llamar al save original
+            self.full_clean()  # Validaciones antes de guardar
             super().save(*args, **kwargs)
-            
             print(f"✅ Archivo guardado exitosamente con ID: {self.pk}")
             
-            # Verificar que el archivo físico existe
             if self.archivo:
                 archivo_path = self.archivo.path
                 if os.path.exists(archivo_path):
-                    print(f"✅ Archivo físico confirmado en: {archivo_path}")
+                    print(f"Archivo físico encontrado en: {archivo_path}")
                 else:
-                    print(f"❌ Archivo físico NO encontrado en: {archivo_path}")
-            
-        except Exception as e:
-            print(f"❌ Error al guardar archivo: {type(e).__name__}: {e}")
+                    print(f"❌ Archivo físico no encontrado en: {archivo_path}")
+        except ValidationError as e:
+            print(f"❌ Error al guardar el archivo: {type(e).__name__} - {e}")
             import traceback
             traceback.print_exc()
-            raise
-        
-        print("=== FIN DEBUG MODEL SAVE ===")
-    
+            raise 
+        print("=== FIN DEBUG MODEL SAVE SIMPLIFICADO ===")
+
+
+
+
+
     def get_tamaño_legible(self):
         """Convierte el tamaño en bytes a formato legible"""
         if not self.tamaño:
