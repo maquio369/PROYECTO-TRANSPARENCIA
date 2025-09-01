@@ -11,11 +11,12 @@ TIPO_USUARIO_CHOICES = [
     ('recursos_financieros', 'Unidad de Recursos Financieros'),
 ]
 
-# Choices para tipos de periodo
+
+# Cambiar las opciones de periodo
 TIPO_PERIODO_CHOICES = [
     ('anual', 'Anual'),
     ('trimestral', 'Trimestral'),
-    ('bimestral', 'Bimestral'),
+    ('semestral', 'Semestral'),  # ← CAMBIO: era 'bimestral'
 ]
 
 class PerfilUsuario(models.Model):
@@ -98,7 +99,6 @@ class Archivo(models.Model):
     # Archivo
     archivo = models.FileField(
         upload_to=archivo_upload_path,
-        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'doc', 'docx', 'xls', 'xlsx'])],
         verbose_name='Archivo',
         max_length=500  # Aumentar para rutas largas
     )
@@ -137,7 +137,7 @@ class Archivo(models.Model):
             raise ValidationError({'año': 'El año debe estar entre 2020 y 2030'})
         
         # Validar archivo si existe
-        if self.archivo:
+        if self.archivo and hasattr(self.archivo, 'size'):
             # Verificar tamaño
             if self.archivo.size > 104857600:  # 100 MB
                 raise ValidationError({'archivo': 'El archivo no puede superar los 100 MB'})
@@ -145,6 +145,13 @@ class Archivo(models.Model):
             # Verificar que no esté vacío
             if self.archivo.size == 0:
                 raise ValidationError({'archivo': 'El archivo no puede estar vacío'})
+            
+            # Validar extensión
+            if hasattr(self.archivo, 'name'):
+                extensiones_permitidas = ['.pdf', '.doc', '.docx', '.xls', '.xlsx']
+                nombre_archivo = self.archivo.name.lower()
+                if not any(nombre_archivo.endswith(ext) for ext in extensiones_permitidas):
+                    raise ValidationError({'archivo': 'Formato de archivo no permitido. Use: PDF, DOC, DOCX, XLS, XLSX'})
     
     
     def save(self, *args, **kwargs):

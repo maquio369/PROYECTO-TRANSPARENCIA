@@ -1,7 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError
-from django import forms
-from django.core.exceptions import ValidationError
+from datetime import datetime  # ← NUEVA IMPORTACIÓN
 from .models import Archivo, Fraccion, PerfilUsuario
 
 
@@ -13,20 +12,27 @@ class MultipleFileField(forms.FileField):
     """Campo personalizado para múltiples archivos"""
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("widget", MultipleFileInput())
+        # Remover validadores automáticos para manejarlos manualmente
+        kwargs['validators'] = []
         super().__init__(*args, **kwargs)
 
     def clean(self, data, initial=None):
-        single_file_clean = super().clean
+        # No aplicar validadores automáticos aquí
         if isinstance(data, (list, tuple)):
-            result = [single_file_clean(d, initial) for d in data]
+            # Validar que no esté vacío
+            if not data:
+                raise ValidationError('Debe seleccionar al menos un archivo.')
+            return data
         else:
-            result = single_file_clean(data, initial)
-        return result
+            if not data:
+                raise ValidationError('Debe seleccionar al menos un archivo.')
+            return [data] if data else []
 
+# Cambiar las opciones de periodo
 TIPO_PERIODO_CHOICES = [
     ('anual', 'Anual'),
     ('trimestral', 'Trimestral'),
-    ('bimestral', 'Bimestral'),
+    ('semestral', 'Semestral'),  
 ]
 
 
@@ -34,44 +40,44 @@ TIPO_PERIODO_CHOICES = [
 class ArchivoForm(forms.ModelForm):
     """Formulario para cargar archivos"""
     
+    # Campo personalizado para múltiples archivos
+    archivo = MultipleFileField(
+        widget=MultipleFileInput(attrs={
+            'class': 'form-control',
+            'accept': '.pdf,.doc,.docx,.xls,.xlsx',
+            'multiple': True,
+            'required': True
+        }),
+        label='Archivo',
+        required=True
+    )
+    
     class Meta:
         model = Archivo
-        fields = ['fraccion', 'tipo_periodo', 'año', 'periodo_especifico']
-
-        # Campo personalizado para múltiples archivos
-        archivo = MultipleFileField(
-            widget=MultipleFileInput(attrs={
+        fields = ['fraccion', 'tipo_periodo', 'año', 'periodo_especifico', 'archivo']
+        widgets = {
+            'fraccion': forms.Select(attrs={
                 'class': 'form-control',
-                'accept': '.pdf,.doc,.docx,.xls,.xlsx',
-                'multiple': True,
                 'required': True
             }),
-            label='Archivo'
-        )
-        widgets = {
-    'fraccion': forms.Select(attrs={
-        'class': 'form-control',
-        'required': True
-    }),
-    'tipo_periodo': forms.Select(attrs={
-        'class': 'form-control',
-        'required': True
-    }),
-    'año': forms.NumberInput(attrs={
-        'class': 'form-control',
-        'min': 2020,
-        'max': 2030,
-        'required': True,
-        'value': 2024
-    }),
-    'periodo_especifico': forms.TextInput(attrs={
-        'class': 'form-control',
-        'placeholder': 'Ej: T1, T2, B1, etc.',
-        'required': True,
-        'maxlength': 20
-    })
-    # ← Ya no incluir 'archivo' aquí
-}
+            'tipo_periodo': forms.Select(attrs={
+                'class': 'form-control',
+                'required': True
+            }),
+            'año': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 2020,
+                'max': 2030,
+                'required': True,
+                'value': datetime.now().year  # ← CAMBIO: Año actual dinámico
+            }),
+            'periodo_especifico': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: T1, T2, S1, S2, A',  # ← CAMBIO: Actualizado placeholder
+                'required': True,
+                'maxlength': 20
+            })
+        }
         
     
     def __init__(self, *args, **kwargs):
@@ -80,6 +86,18 @@ class ArchivoForm(forms.ModelForm):
         
         print(f"=== DEBUG FORMS INIT ===")
         print(f"Usuario recibido: {user}")
+        
+        # ✅ ESTABLECER VALORES POR DEFECTO
+        current_year = datetime.now().year  # Obtener año actual (2025)
+        
+        # Valor por defecto para tipo_periodo
+        self.fields['tipo_periodo'].initial = 'trimestral'
+        
+        # Valor por defecto para año (año actual)
+        self.fields['año'].initial = current_year
+        
+        # También establecer el valor en el widget
+        self.fields['año'].widget.attrs['value'] = current_year
         
         # Filtrar fracciones según el tipo de usuario
         if user:
@@ -117,13 +135,12 @@ class ArchivoForm(forms.ModelForm):
         self.fields['tipo_periodo'].label = 'Tipo de Periodo'
         self.fields['año'].label = 'Año'
         self.fields['periodo_especifico'].label = 'Periodo Específico'
-        #self.fields['archivo'].label = 'Archivo'
-
         
-        # Agregar help_text útil
-        self.fields['año'].help_text = 'Año del periodo que cubre el archivo'
-        #self.fields['archivo'].help_text = 'Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX. Tamaño máximo: 100 MB por archivo. Puedes seleccionar múltiples archivos.'
+        # ✅ HELP TEXT ACTUALIZADO
+        self.fields['año'].help_text = f'Año del periodo que cubren los archivo '
+        self.fields['tipo_periodo'].help_text = 'Seleccione el tipo de periodo (por defecto: Trimestral)'
         
+        print(f"🔧 Valores por defecto establecidos: Trimestral, Año {current_year}")
         print("=== FIN DEBUG FORMS INIT ===")
 
     def clean_archivo(self): 
@@ -133,62 +150,67 @@ class ArchivoForm(forms.ModelForm):
         print(f"Archivos recibidos: {archivos}")
         print(f"Tipo: {type(archivos)}")
     
-    # Si no hay archivos
+        # Si no hay archivos
         if not archivos:
             print("❌ No se recibieron archivos")
             raise ValidationError('Debe seleccionar al menos un archivo.')
     
-    # Si es una lista (múltiples archivos)
+        # Si es una lista (múltiples archivos)
         if isinstance(archivos, list):
             print(f"📁 Lista de archivos: {len(archivos)} archivos")
             validated_files = []
             
             for i, archivo in enumerate(archivos):
-                print(f"Validando archivo {i+1}: {archivo.name}")
-                validated_files.append(self._validate_single_file(archivo))
+                if hasattr(archivo, 'name'):
+                    print(f"Validando archivo {i+1}: {archivo.name}")
+                    validated_files.append(self._validate_single_file(archivo))
+                else:
+                    print(f"❌ Archivo {i+1} no tiene atributo 'name'")
         
             return validated_files
     
         else:
-         print(f"📄 Archivo único: {archivos.name}")
-        return [self._validate_single_file(archivos)]
+            if hasattr(archivos, 'name'):
+                print(f"📄 Archivo único: {archivos.name}")
+                return [self._validate_single_file(archivos)]
+            else:
+                print("❌ Archivo único no tiene atributo 'name'")
+                raise ValidationError('Archivo no válido.')
 
-def _validate_single_file(self, archivo):
-    """Validar un archivo individual"""
-    if not archivo:
-        raise ValidationError('Archivo vacío.')
-    
-    print(f"Validando: {archivo.name}, Tamaño: {archivo.size} bytes")
-    
-    # Validar que el archivo tenga contenido
-    if archivo.size == 0:
-        raise ValidationError(f'El archivo "{archivo.name}" está vacío.')
-    
-    # Validar tamaño (100 MB)
-    max_size = 104857600  # 100 MB en bytes
-    if archivo.size > max_size:
-        raise ValidationError(
-            f'El archivo "{archivo.name}" no puede superar los 100 MB. '
-            f'Tamaño actual: {archivo.size / (1024*1024):.2f} MB'
-        )
-    
-    # Validar extensión
-    extensiones_permitidas = ['.pdf', '.doc', '.docx', '.xls', '.xlsx']
-    nombre_archivo = archivo.name.lower()
-    
-    extension_valida = any(nombre_archivo.endswith(ext) for ext in extensiones_permitidas)
-    
-    if not extension_valida:
-        raise ValidationError(
-            f'El archivo "{archivo.name}" tiene un formato no permitido. '
-            f'Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX'
-        )
-    
-    print(f"✅ Archivo válido: {archivo.name}")
-    return archivo   
-    
-    
-    
+    def _validate_single_file(self, archivo):
+        """Validar un archivo individual"""
+        if not archivo:
+            raise ValidationError('Archivo vacío.')
+        
+        print(f"Validando: {archivo.name}, Tamaño: {archivo.size} bytes")
+        
+        # Validar que el archivo tenga contenido
+        if archivo.size == 0:
+            raise ValidationError(f'El archivo "{archivo.name}" está vacío.')
+        
+        # Validar tamaño (100 MB)
+        max_size = 104857600  # 100 MB en bytes
+        if archivo.size > max_size:
+            raise ValidationError(
+                f'El archivo "{archivo.name}" no puede superar los 100 MB. '
+                f'Tamaño actual: {archivo.size / (1024*1024):.2f} MB'
+            )
+        
+        # Validar extensión
+        extensiones_permitidas = ['.pdf', '.doc', '.docx', '.xls', '.xlsx']
+        nombre_archivo = archivo.name.lower()
+        
+        extension_valida = any(nombre_archivo.endswith(ext) for ext in extensiones_permitidas)
+        
+        if not extension_valida:
+            raise ValidationError(
+                f'El archivo "{archivo.name}" tiene un formato no permitido. '
+                f'Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX'
+            )
+        
+        print(f"✅ Archivo válido: {archivo.name}")
+        return archivo   
+        
     def clean_año(self):
         """Validación del año"""
         año = self.cleaned_data.get('año')
@@ -216,66 +238,70 @@ def _validate_single_file(self, archivo):
     def clean(self):
         """Validación global del formulario"""
         cleaned_data = super().clean()
-        
         print(f"=== DEBUG CLEAN GENERAL ===")
         print(f"Datos limpios recibidos: {cleaned_data}")
-        
+
+        self._validate_required_fields(cleaned_data)
+        self._validate_periodo_especifico(cleaned_data)
+        self._validate_archivo_vigente(cleaned_data)
+
+        print(f"Datos finales: {cleaned_data}")
+        print("=== FIN DEBUG CLEAN GENERAL ===")
+        return cleaned_data
+
+    def _validate_required_fields(self, cleaned_data):
         tipo_periodo = cleaned_data.get('tipo_periodo')
         periodo_especifico = cleaned_data.get('periodo_especifico')
         fraccion = cleaned_data.get('fraccion')
         año = cleaned_data.get('año')
         archivo = cleaned_data.get('archivo')
-        
-        # Validar que todos los campos requeridos estén presentes
         campos_requeridos = {
             'fraccion': fraccion,
             'tipo_periodo': tipo_periodo,
-            'año': año,  
+            'año': año,
             'periodo_especifico': periodo_especifico,
             'archivo': archivo
         }
-        
         for campo, valor in campos_requeridos.items():
             if not valor:
                 print(f"❌ Campo requerido faltante: {campo}")
                 self.add_error(campo, f'Este campo es requerido.')
-        
-        # Validar formato del periodo específico según el tipo
+
+    def _validate_periodo_especifico(self, cleaned_data):
+        tipo_periodo = cleaned_data.get('tipo_periodo')
+        periodo_especifico = cleaned_data.get('periodo_especifico')
         if tipo_periodo and periodo_especifico:
             periodo_especifico = periodo_especifico.upper()
-            
             print(f"Validando periodo: {tipo_periodo} - {periodo_especifico}")
-            
             periodo_valido = False
-            
             if tipo_periodo == 'trimestral':
                 if periodo_especifico in ['T1', 'T2', 'T3', 'T4']:
                     periodo_valido = True
                 else:
-                    self.add_error('periodo_especifico', 
-                                 'Para periodo trimestral use: T1, T2, T3, T4')
-            
-            elif tipo_periodo == 'bimestral':
-                if periodo_especifico in ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']:
+                    self.add_error('periodo_especifico',
+                                   'Para periodo trimestral use: T1, T2, T3, T4')
+            elif tipo_periodo == 'semestral':
+                if periodo_especifico in ['S1', 'S2']:
                     periodo_valido = True
                 else:
-                    self.add_error('periodo_especifico', 
-                                 'Para periodo bimestral use: B1, B2, B3, B4, B5, B6')
-            
+                    self.add_error('periodo_especifico',
+                                   'Para periodo semestral use: S1, S2')
             elif tipo_periodo == 'anual':
                 if periodo_especifico in ['A', 'ANUAL']:
                     periodo_valido = True
                 else:
-                    self.add_error('periodo_especifico', 
-                                 'Para periodo anual use: A o ANUAL')
-            
+                    self.add_error('periodo_especifico',
+                                   'Para periodo anual use: A o ANUAL')
             if periodo_valido:
                 cleaned_data['periodo_especifico'] = periodo_especifico
                 print(f"✅ Periodo válido: {periodo_especifico}")
             else:
                 print(f"❌ Periodo inválido: {tipo_periodo} - {periodo_especifico}")
-        
-        # Validar que no exista un archivo vigente para la misma combinación
+
+    def _validate_archivo_vigente(self, cleaned_data):
+        fraccion = cleaned_data.get('fraccion')
+        año = cleaned_data.get('año')
+        periodo_especifico = cleaned_data.get('periodo_especifico')
         if fraccion and año and periodo_especifico and not self.errors:
             archivos_existentes = Archivo.objects.filter(
                 fraccion=fraccion,
@@ -283,22 +309,16 @@ def _validate_single_file(self, archivo):
                 periodo_especifico=periodo_especifico,
                 vigente=True
             )
-            
-            # Si estamos editando, excluir el archivo actual
             if self.instance and self.instance.pk:
                 archivos_existentes = archivos_existentes.exclude(pk=self.instance.pk)
-            
             if archivos_existentes.exists():
                 archivo_existente = archivos_existentes.first()
                 print(f"⚠️ Ya existe archivo vigente: {archivo_existente}")
                 # Solo advertencia, no error, ya que se puede crear nueva versión
                 # self.add_error(None, f'Ya existe un archivo vigente para {fraccion.numero}-{año}-{periodo_especifico}. Se creará una nueva versión.')
-        
-        print(f"Datos finales: {cleaned_data}")
-        print("=== FIN DEBUG CLEAN GENERAL ===")
-        
-        return cleaned_data
-    # ✅ AGREGAR ESTA CLASE AL FINAL DE archivos/forms.py
+
+
+# ✅ AGREGAR ESTA CLASE AL FINAL DE archivos/forms.py
 class ArchivoZipForm(forms.Form):
     """Formulario para cargar múltiples archivos mediante ZIP"""
     
@@ -313,6 +333,7 @@ class ArchivoZipForm(forms.Form):
     
     tipo_periodo = forms.ChoiceField(
         choices=TIPO_PERIODO_CHOICES,
+        initial='trimestral',  # ← VALOR POR DEFECTO TRIMESTRAL
         widget=forms.Select(attrs={
             'class': 'form-control',
             'required': True
@@ -321,12 +342,13 @@ class ArchivoZipForm(forms.Form):
     )
     
     año = forms.IntegerField(
+        initial=datetime.now().year,  # ← VALOR POR DEFECTO AÑO ACTUAL
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'min': 2020,
             'max': 2030,
             'required': True,
-            'value': 2024
+            'value': datetime.now().year  # ← TAMBIÉN EN EL WIDGET
         }),
         label='Año'
     )
@@ -335,7 +357,7 @@ class ArchivoZipForm(forms.Form):
         max_length=20,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Ej: T1, T2, B1, etc.',
+            'placeholder': 'Ej: T1, T2, S1, S2, A',
             'required': True,
             'maxlength': 20
         }),
@@ -355,21 +377,20 @@ class ArchivoZipForm(forms.Form):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        print(f"=== DEBUG ZIP FORM INIT ===")
-        print(f"Usuario recibido: {user}")
+        current_year = datetime.now().year
+        
+        # Establecer valores por defecto
+        self.fields['tipo_periodo'].initial = 'trimestral'
+        self.fields['año'].initial = current_year
         
         # Filtrar fracciones según el tipo de usuario
         if user:
             try:
                 perfil = user.perfilusuario
-                print(f"Perfil encontrado: {perfil.tipo_usuario}")
-                
                 fracciones_disponibles = Fraccion.objects.filter(
                     tipo_usuario_asignado=perfil.tipo_usuario,
                     activa=True
                 )
-                print(f"Fracciones disponibles para ZIP: {fracciones_disponibles.count()}")
-                
                 self.fields['fraccion'].queryset = fracciones_disponibles
                 
                 if not fracciones_disponibles.exists():
@@ -377,7 +398,6 @@ class ArchivoZipForm(forms.Form):
                     self.fields['fraccion'].help_text = f"No hay fracciones asignadas para: {perfil.get_tipo_usuario_display()}"
                 
             except PerfilUsuario.DoesNotExist:
-                print("❌ Usuario sin perfil")
                 self.fields['fraccion'].queryset = Fraccion.objects.none()
                 self.fields['fraccion'].widget.attrs['disabled'] = True
                 self.fields['fraccion'].help_text = "Tu usuario no tiene un perfil asignado."
@@ -385,43 +405,11 @@ class ArchivoZipForm(forms.Form):
             self.fields['fraccion'].queryset = Fraccion.objects.none()
         
         # Help text útil
-        self.fields['año'].help_text = 'Año del periodo que cubren TODOS los archivos'
+        self.fields['año'].help_text = f'Año del periodo que cubren TODOS los archivos (por defecto: {current_year})'
+        self.fields['tipo_periodo'].help_text = 'Tipo de periodo para todos los archivos (por defecto: Trimestral)'
         self.fields['archivo_zip'].help_text = 'ZIP con múltiples archivos. Máximo: 500 MB'
-        
-        print("=== FIN DEBUG ZIP FORM INIT ===")
     
-    def clean_archivo_zip(self):
-        """Validación del archivo ZIP"""
-        archivo_zip = self.cleaned_data.get('archivo_zip')
-        
-        if not archivo_zip:
-            raise ValidationError('Debe seleccionar un archivo ZIP.')
-        
-        # Validar que no esté vacío
-        if archivo_zip.size == 0:
-            raise ValidationError('El archivo ZIP está vacío.')
-        
-        # Validar tamaño (500 MB)
-        max_size = 524288000  # 500 MB
-        if archivo_zip.size > max_size:
-            raise ValidationError(
-                f'El archivo ZIP no puede superar los 500 MB. '
-                f'Tu archivo: {archivo_zip.size / (1024*1024):.2f} MB'
-            )
-        
-        # Validar extensión
-        extensiones_zip = ['.zip', '.rar', '.7z']
-        nombre_archivo = archivo_zip.name.lower()
-        
-        extension_valida = any(nombre_archivo.endswith(ext) for ext in extensiones_zip)
-        
-        if not extension_valida:
-            raise ValidationError(
-                f'Solo se permiten archivos ZIP, RAR, 7Z. '
-                f'Tu archivo: {archivo_zip.name}'
-            )
-        
-        return archivo_zip
+   
     
     def clean_periodo_especifico(self):
         """Validación del periodo específico"""
@@ -442,7 +430,7 @@ class ArchivoZipForm(forms.Form):
         tipo_periodo = cleaned_data.get('tipo_periodo')
         periodo_especifico = cleaned_data.get('periodo_especifico')
         
-        # Validar formato del periodo específico según el tipo
+        # ✅ VALIDACIONES ACTUALIZADAS
         if tipo_periodo and periodo_especifico:
             periodo_especifico = periodo_especifico.upper()
             
@@ -451,27 +439,17 @@ class ArchivoZipForm(forms.Form):
                     self.add_error('periodo_especifico', 
                                  'Para periodo trimestral use: T1, T2, T3, T4')
             
-            elif tipo_periodo == 'bimestral':
-                if periodo_especifico not in ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']:
+            elif tipo_periodo == 'semestral':  # ← CAMBIO: era 'bimestral'
+                if periodo_especifico not in ['S1', 'S2']:  # ← CAMBIO: era B1-B6
                     self.add_error('periodo_especifico', 
-                                 'Para periodo bimestral use: B1, B2, B3, B4, B5, B6')
+                                 'Para periodo semestral use: S1, S2')  # ← CAMBIO
             
             elif tipo_periodo == 'anual':
                 if periodo_especifico not in ['A', 'ANUAL']:
                     self.add_error('periodo_especifico', 
                                  'Para periodo anual use: A o ANUAL')
             
-            if periodo_especifico in ['T1', 'T2', 'T3', 'T4', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'A', 'ANUAL']:
+            if periodo_especifico in ['T1', 'T2', 'T3', 'T4', 'S1', 'S2', 'A', 'ANUAL']:  # ← CAMBIO
                 cleaned_data['periodo_especifico'] = periodo_especifico
         
         return cleaned_data
-
-    
-        
-    
-
-
-        
-
-
-        

@@ -173,7 +173,7 @@
                             <td>
                                 <div class="btn-group btn-group-sm">
                                     <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" 
-                                       class="btn btn-outline-primary" title="Ver archivo">
+                                       class="btn btn-outline-primary" title="Ver archivo" target="_blank">
                                         <i class="bi bi-eye"></i>
                                     </a>
                                     <a href="{% url 'archivos:descargar_archivo' archivo.id %}" 
@@ -224,7 +224,7 @@
                                     </small>
                                 </p>
                                 <div class="btn-group w-100" role="group">
-                                    <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" class="btn btn-outline-primary btn-sm">
+                                    <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" class="btn btn-outline-primary btn-sm" target="_blank">
                                         <i class="bi bi-eye"></i>
                                     </a>
                                     <a href="{% url 'archivos:descargar_archivo' archivo.id %}" class="btn btn-outline-success btn-sm">

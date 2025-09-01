@@ -14,10 +14,7 @@
         <i class="bi bi-cloud-upload"></i>
         <span>Cargar Archivos</span>
     </a>
-    <a href="{% url 'archivos:estadisticas' %}" class="btn btn-outline-primary btn-compact">
-        <i class="bi bi-graph-up"></i>
-        <span>Estadísticas</span>
-    </a>
+  
 </div>
 {% endblock %}
 
@@ -237,7 +234,7 @@
                                     <div class="btn-group btn-group-sm">
                                         <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" 
                                            class="btn btn-outline-primary" 
-                                           title="Ver archivo">
+                                           title="Ver archivo" target="_blank">
                                             <i class="bi bi-eye"></i>
                                         </a>
                                         <a href="{% url 'archivos:descargar_archivo' archivo.id %}" 

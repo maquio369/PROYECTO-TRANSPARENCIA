@@ -48,18 +48,26 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label for="{{ form.periodo_especifico.id_for_label }}" class="form-label">{{ form.periodo_especifico.label }}</label>
-                            {{ form.periodo_especifico }}
-                            {% if form.periodo_especifico.errors %}
-                                <div class="invalid-feedback d-block">{{ form.periodo_especifico.errors.0 }}</div>
-                            {% endif %}
-                            <div class="form-text">
-                                <strong>Ejemplos:</strong><br>
-                                • Trimestral: T1, T2, T3, T4<br>
-                                • Bimestral: B1, B2, B3, B4, B5, B6<br>
-                                • Anual: A o ANUAL
-                            </div>
-                        </div>
+    <label for="{{ form.periodo_especifico.id_for_label }}" class="form-label">{{ form.periodo_especifico.label }}</label>
+    {{ form.periodo_especifico }}
+    {% if form.periodo_especifico.errors %}
+        <div class="invalid-feedback d-block">{{ form.periodo_especifico.errors.0 }}</div>
+    {% endif %}
+    
+    <!-- ✅ AYUDA DINÁMICA MEJORADA -->
+    <div class="form-text" id="periodo-help">
+        <strong>Ejemplos por tipo:</strong><br>
+        <span id="help-trimestral" style="display: block;">
+            • <strong>Trimestral:</strong> T1 (Ene-Mar), T2 (Abr-Jun), T3 (Jul-Sep), T4 (Oct-Dic)
+        </span>
+        <span id="help-semestral" style="display: none;">
+            • <strong>Semestral:</strong> S1 (Ene-Jun), S2 (Jul-Dic)
+        </span>
+        <span id="help-anual" style="display: none;">
+            • <strong>Anual:</strong> A o ANUAL (Todo el año)
+        </span>
+    </div>
+</div>
                     </div>
 
                     <!-- ✅ CAMPO DE ARCHIVO CORREGIDO -->
@@ -147,6 +155,49 @@
 
 {% block scripts %}
 <script>
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+    const tipoPeriodoSelect = document.getElementById('id_tipo_periodo');
+    const añoInput = document.getElementById('id_año');
+    
+    // Función para mostrar ayuda según el tipo seleccionado
+    function actualizarAyuda() {
+        const tipoSeleccionado = tipoPeriodoSelect.value;
+        
+        // Ocultar todas las ayudas
+        document.getElementById('help-trimestral').style.display = 'none';
+        document.getElementById('help-semestral').style.display = 'none';
+        document.getElementById('help-anual').style.display = 'none';
+        
+        // Mostrar ayuda correspondiente
+        if (tipoSeleccionado === 'trimestral') {
+            document.getElementById('help-trimestral').style.display = 'block';
+        } else if (tipoSeleccionado === 'semestral') {
+            document.getElementById('help-semestral').style.display = 'block';
+        } else if (tipoSeleccionado === 'anual') {
+            document.getElementById('help-anual').style.display = 'block';
+        }
+        
+        console.log(`💡 Ayuda actualizada para: ${tipoSeleccionado}`);
+    }
+    
+    // Ejecutar al cambiar el tipo de periodo
+    if (tipoPeriodoSelect) {
+        tipoPeriodoSelect.addEventListener('change', actualizarAyuda);
+        
+        // Ejecutar al cargar la página para mostrar la ayuda del valor por defecto
+        actualizarAyuda();
+    }
+    
+    // Mostrar valor por defecto en consola para debug
+    if (tipoPeriodoSelect && añoInput) {
+        console.log(`🔧 Valores por defecto cargados:`);
+        console.log(`   Tipo de periodo: ${tipoPeriodoSelect.value}`);
+        console.log(`   Año: ${añoInput.value}`);
+    }
+}); // <-- Cierra el primer DOMContentLoaded
+
 // ✅ JAVASCRIPT PARA MÚLTIPLES ARCHIVOS - CORREGIDO
 document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.getElementById('id_archivo');

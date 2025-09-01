@@ -13,6 +13,8 @@ from django.core.exceptions import ValidationError
 import mimetypes
 import os
 from django.core.files.base import ContentFile
+from django.utils._os import safe_join
+from django.conf import settings
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -333,228 +335,194 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
     
     def exportar_excel(self, request):
         """
-        FUNCIÓN OPTIMIZADA PARA EXPORTAR A EXCEL - AGRUPADA POR FRACCIÓN
+        Exporta los archivos filtrados a un archivo Excel agrupado por fracción.
         """
         print("📊 Iniciando exportación a Excel agrupada...")
-        
-        # Obtener queryset con los mismos filtros pero ORDENADO POR FRACCIÓN
+
         queryset = self.get_queryset().order_by(
-            'fraccion__numero',  # PRIMERO por número de fracción
-            'año',               # Luego por año  
-            'periodo_especifico', # Luego por periodo
-            '-created_at'        # Finalmente por fecha (más recientes primero)
+            'fraccion__numero',
+            'año',
+            'periodo_especifico',
+            '-created_at'
         )
-        
-        # Obtener información del usuario
+
+        tipo_usuario_display = self._get_tipo_usuario_display(request)
+        wb, ws, styles = self._crear_workbook()
+        row_num = self._escribir_encabezados(ws, styles)
+        row_num = self._escribir_datos_archivos(ws, queryset, request, row_num, styles)
+        self._ajustar_ancho_columnas(ws)
+        info_row = self._agregar_informacion_reporte(ws, request, queryset, tipo_usuario_display, row_num)
+        self._agregar_estadisticas_fracciones(ws, queryset, info_row)
+
+        response = self._preparar_respuesta_excel(request, queryset, wb)
+        print(f"📁 Fracciones incluidas: {len(set(a.fraccion.numero for a in queryset))}")
+
+        return response
+
+    def _get_tipo_usuario_display(self, request):
         try:
             perfil = request.user.perfilusuario
-            tipo_usuario_display = perfil.get_tipo_usuario_display()
-        except:
-            tipo_usuario_display = "Usuario"
-        
-        # Crear workbook y worksheet
+            return perfil.get_tipo_usuario_display()
+        except PerfilUsuario.DoesNotExist:
+            return "Usuario"
+
+    def _crear_workbook(self):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Archivos Artículo 65"
-        
-        # CONFIGURAR ESTILOS
-        header_font = Font(bold=True, color="FFFFFF", size=12)
-        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-        header_alignment = Alignment(horizontal="center", vertical="center")
-        
-        # Estilo para separadores de fracción
-        fraccion_font = Font(bold=True, color="FFFFFF", size=11)
-        fraccion_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-        
-        border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
-        )
-        
-        # ENCABEZADOS OPTIMIZADOS
+        styles = {
+            'header_font': Font(bold=True, color="FFFFFF", size=12),
+            'header_fill': PatternFill(start_color="366092", end_color="366092", fill_type="solid"),
+            'header_alignment': Alignment(horizontal="center", vertical="center"),
+            'fraccion_font': Font(bold=True, color="FFFFFF", size=11),
+            'fraccion_fill': PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid"),
+            'border': Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+        }
+        return wb, ws, styles
+
+    def _escribir_encabezados(self, ws, styles):
         headers = [
-            'Número',           # PRIMERA COLUMNA
-            'Fracción',         # SEGUNDA COLUMNA  
+            'Número',
+            'Fracción',
             'Año',
             'Tipo Periodo',
             'Archivo',
             'Fecha Carga',
             'Enlace Público'
         ]
-        
-        # Escribir encabezados
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=header)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_alignment
-            cell.border = border
-        
-        # ESCRIBIR DATOS AGRUPADOS POR FRACCIÓN
-        row_num = 2
+            cell.font = styles['header_font']
+            cell.fill = styles['header_fill']
+            cell.alignment = styles['header_alignment']
+            cell.border = styles['border']
+        return 2
+
+    def _escribir_datos_archivos(self, ws, queryset, request, row_num, styles):
         current_fraccion = None
-        
+        headers_len = 7
         for archivo in queryset:
-            # AGREGAR SEPARADOR CUANDO CAMBIA LA FRACCIÓN
             if current_fraccion != archivo.fraccion.numero:
-                if current_fraccion is not None:  # No agregar separador antes de la primera fracción
-                    # Fila vacía como separador
+                if current_fraccion is not None:
                     row_num += 1
-                
-                # Fila de título de fracción
                 ws.merge_cells(f'A{row_num}:G{row_num}')
-                title_cell = ws.cell(row=row_num, column=1, 
-                                   value=f"FRACCIÓN {archivo.fraccion.numero} - {archivo.fraccion.nombre}")
-                title_cell.font = fraccion_font
-                title_cell.fill = fraccion_fill
+                title_cell = ws.cell(row=row_num, column=1,
+                                    value=f"FRACCIÓN {archivo.fraccion.numero} - {archivo.fraccion.nombre}")
+                title_cell.font = styles['fraccion_font']
+                title_cell.fill = styles['fraccion_fill']
                 title_cell.alignment = Alignment(horizontal="center", vertical="center")
-                
-                # Aplicar borde a todas las celdas de la fila fusionada
-                for col in range(1, len(headers) + 1):
-                    ws.cell(row=row_num, column=col).border = border
-                
+                for col in range(1, headers_len + 1):
+                    ws.cell(row=row_num, column=col).border = styles['border']
                 row_num += 1
                 current_fraccion = archivo.fraccion.numero
-            
-            # Generar enlace público
+
             enlace_publico = f"{request.scheme}://{request.get_host()}/publico/archivo/{archivo.id}/"
-            
-            # DATOS OPTIMIZADOS DE LA FILA
             row_data = [
-                archivo.fraccion.numero,                                    # Número (PRIMERA COLUMNA)
-                archivo.fraccion.nombre,                                    # Fracción (SEGUNDA COLUMNA)
-                archivo.año,                                               # Año
-                archivo.get_tipo_periodo_display(),                        # Tipo Periodo
-                archivo.nombre_original,                                   # Archivo
-                archivo.created_at.strftime("%d/%m/%Y %H:%M"),            # Fecha Carga
-                enlace_publico                                             # Enlace Público
+                archivo.fraccion.numero,
+                archivo.fraccion.nombre,
+                archivo.año,
+                archivo.get_tipo_periodo_display(),
+                archivo.nombre_original,
+                archivo.created_at.strftime("%d/%m/%Y %H:%M"),
+                enlace_publico
             ]
-            
-            # Escribir fila
             for col, value in enumerate(row_data, 1):
                 cell = ws.cell(row=row_num, column=col, value=value)
-                cell.border = border
-                
-                # COLOREAR FILAS ALTERNADAS POR FRACCIÓN
+                cell.border = styles['border']
                 if archivo.vigente:
-                    # Verde claro para archivos vigentes
                     cell.fill = PatternFill(start_color="E8F5E8", end_color="E8F5E8", fill_type="solid")
                 else:
-                    # Gris claro para archivos históricos
                     cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
-            
             row_num += 1
-        
-        # AJUSTAR ANCHO DE COLUMNAS OPTIMIZADO
+        return row_num
+
+    def _ajustar_ancho_columnas(self, ws):
         column_widths = [
             12,  # Número
-            45,  # Fracción (más ancho para nombres largos)
+            45,  # Fracción
             10,  # Año
             15,  # Tipo Periodo
             40,  # Archivo
             18,  # Fecha Carga
-            55   # Enlace Público (más ancho)
+            55   # Enlace Público
         ]
-        
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
-        
-        # AGREGAR INFORMACIÓN DEL REPORTE
+
+    def _agregar_informacion_reporte(self, ws, request, queryset, tipo_usuario_display, row_num):
         info_row = row_num + 3
-        
-        # Título de información
         ws.merge_cells(f'A{info_row}:C{info_row}')
         info_title = ws.cell(row=info_row, column=1, value="INFORMACIÓN DEL REPORTE")
         info_title.font = Font(bold=True, size=11)
         info_title.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
         info_row += 1
-        
-        # Información del reporte
+
         info_data = [
             ("Reporte generado por:", f"{request.user.get_full_name() or request.user.username}"),
             ("Fecha de generación:", timezone.now().strftime("%d/%m/%Y %H:%M")),
             ("Tipo de usuario:", tipo_usuario_display),
             ("Total de archivos:", queryset.count()),
         ]
-        
-        # AGREGAR FILTROS APLICADOS
         filtros_info = []
         if request.GET.get('fraccion'):
             try:
                 fraccion = Fraccion.objects.get(id=request.GET.get('fraccion'))
                 filtros_info.append(f"Fracción: {fraccion.numero} - {fraccion.nombre}")
-            except:
+            except Fraccion.DoesNotExist:
                 pass
-        
         if request.GET.get('año'):
             filtros_info.append(f"Año: {request.GET.get('año')}")
-        
         if request.GET.get('estado'):
             estado = request.GET.get('estado')
             filtros_info.append(f"Estado: {estado.capitalize()}")
-        
         if request.GET.get('busqueda'):
             filtros_info.append(f"Búsqueda: {request.GET.get('busqueda')}")
-        
         if filtros_info:
             info_data.append(("Filtros aplicados:", " | ".join(filtros_info)))
-        
-        # Escribir información
         for label, value in info_data:
             ws.cell(row=info_row, column=1, value=label).font = Font(bold=True)
             ws.cell(row=info_row, column=2, value=str(value))
             info_row += 1
-        
-        # AGREGAR ESTADÍSTICAS DE FRACCIONES
+        return info_row
+
+    def _agregar_estadisticas_fracciones(self, ws, queryset, info_row):
         if queryset.count() > 0:
-            # Contar archivos por fracción
             stats_fraccion = queryset.values('fraccion__numero', 'fraccion__nombre').annotate(
                 total=Count('id')
             ).order_by('fraccion__numero')
-            
-            if len(stats_fraccion) > 1:  # Solo mostrar si hay múltiples fracciones
+            if len(stats_fraccion) > 1:
                 info_row += 1
                 ws.cell(row=info_row, column=1, value="ARCHIVOS POR FRACCIÓN:").font = Font(bold=True)
                 info_row += 1
-                
                 for stat in stats_fraccion:
                     ws.cell(row=info_row, column=1, value=f"Fracción {stat['fraccion__numero']}:")
                     ws.cell(row=info_row, column=2, value=f"{stat['total']} archivo(s)")
                     info_row += 1
-        
-        # PREPARAR RESPUESTA HTTP
+
+    def _preparar_respuesta_excel(self, request, queryset, wb):
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        
-        # Generar nombre de archivo dinámico
         fecha_actual = timezone.now().strftime("%Y%m%d_%H%M")
         filtro_str = ""
-        
         if request.GET.get('año'):
             filtro_str += f"_{request.GET.get('año')}"
         if request.GET.get('fraccion'):
             try:
                 fraccion = Fraccion.objects.get(id=request.GET.get('fraccion'))
                 filtro_str += f"_Frac{fraccion.numero}"
-            except:
+            except Fraccion.DoesNotExist:
                 pass
         elif queryset.count() > 0:
-            # Si es de todas las fracciones, indicarlo
             filtro_str += "_TodasFracciones"
-        
         filename = f"Archivos_Articulo65{filtro_str}_{fecha_actual}.xlsx"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        
-        # Guardar workbook en response
         wb.save(response)
-        
-        print(f"✅ Excel agrupado generado: {filename}")
-        print(f"📊 Registros exportados: {queryset.count()}")
-        print(f"📁 Fracciones incluidas: {len(set(a.fraccion.numero for a in queryset))}")
-        
         return response
 
 
@@ -617,15 +585,19 @@ class DescargarArchivoView(LoginRequiredMixin, View):
         
         # Servir archivo
         try:
-            if archivo.archivo and os.path.exists(archivo.archivo.path):
-                response = FileResponse(
-                    open(archivo.archivo.path, 'rb'),
-                    as_attachment=True,
-                    filename=archivo.nombre_original
-                )
-                return response
+            if archivo.archivo and archivo.archivo.name:
+                file_path = safe_join(settings.MEDIA_ROOT, archivo.archivo.name)
+                if os.path.exists(file_path):
+                    response = FileResponse(
+                        open(file_path, 'rb'),
+                        as_attachment=True,
+                        filename=archivo.nombre_original
+                    )
+                    return response
+                else:
+                    raise Http404("Archivo físico no encontrado")
             else:
-                raise Http404("Archivo físico no encontrado")
+                raise Http404("Archivo no válido")
         except Exception as e:
             print(f"Error al servir archivo: {e}")
             raise Http404("Error al acceder al archivo")
@@ -633,10 +605,10 @@ class DescargarArchivoView(LoginRequiredMixin, View):
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            ip = x_forwarded_for.split(',')[0].strip()
         else:
             ip = request.META.get('REMOTE_ADDR')
-        return ip
+        return ip or '0.0.0.0'
 
 
 class VerArchivoView(LoginRequiredMixin, View):
@@ -665,15 +637,19 @@ class VerArchivoView(LoginRequiredMixin, View):
         
         # Servir archivo para visualización
         try:
-            if archivo.archivo and os.path.exists(archivo.archivo.path):
-                content_type, _ = mimetypes.guess_type(archivo.archivo.path)
-                response = FileResponse(
-                    open(archivo.archivo.path, 'rb'),
-                    content_type=content_type
-                )
-                return response
+            if archivo.archivo and archivo.archivo.name:
+                file_path = safe_join(settings.MEDIA_ROOT, archivo.archivo.name)
+                if os.path.exists(file_path):
+                    content_type, _ = mimetypes.guess_type(file_path)
+                    response = FileResponse(
+                        open(file_path, 'rb'),
+                        content_type=content_type
+                    )
+                    return response
+                else:
+                    raise Http404("Archivo físico no encontrado")
             else:
-                raise Http404("Archivo físico no encontrado")
+                raise Http404("Archivo no válido")
         except Exception as e:
             print(f"Error al servir archivo: {e}")
             raise Http404("Error al acceder al archivo")
@@ -681,10 +657,10 @@ class VerArchivoView(LoginRequiredMixin, View):
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            ip = x_forwarded_for.split(',')[0].strip()
         else:
             ip = request.META.get('REMOTE_ADDR')
-        return ip
+        return ip or '0.0.0.0'
 
 
 class EstadisticasView(LoginRequiredMixin, TemplateView):
@@ -751,26 +727,31 @@ class VerArchivoPublicoView(View):
         
         # Servir archivo para visualización
         try:
-            if archivo.archivo and os.path.exists(archivo.archivo.path):
-                content_type, _ = mimetypes.guess_type(archivo.archivo.path)
-                
-                print(f"✅ Sirviendo archivo: {archivo.archivo.path}")
-                print(f"📄 Content-Type: {content_type}")
-                
-                response = FileResponse(
-                    open(archivo.archivo.path, 'rb'),
-                    content_type=content_type,
-                    filename=archivo.nombre_original
-                )
-                
-                # Headers adicionales para mejor experiencia
-                response['Content-Disposition'] = f'inline; filename="{archivo.nombre_original}"'
-                response['X-Frame-Options'] = 'SAMEORIGIN'  # Permitir embed en iframes del mismo origen
-                
-                return response
+            if archivo.archivo and archivo.archivo.name:
+                file_path = safe_join(settings.MEDIA_ROOT, archivo.archivo.name)
+                if os.path.exists(file_path):
+                    content_type, _ = mimetypes.guess_type(file_path)
+                    
+                    print(f"✅ Sirviendo archivo: {file_path}")
+                    print(f"📄 Content-Type: {content_type}")
+                    
+                    response = FileResponse(
+                        open(file_path, 'rb'),
+                        content_type=content_type,
+                        filename=archivo.nombre_original
+                    )
+                    
+                    # Headers adicionales para mejor experiencia
+                    response['Content-Disposition'] = f'inline; filename="{archivo.nombre_original}"'
+                    response['X-Frame-Options'] = 'SAMEORIGIN'
+                    
+                    return response
+                else:
+                    print(f"❌ Archivo físico no encontrado: {file_path}")
+                    raise Http404("Archivo no encontrado")
             else:
-                print(f"❌ Archivo físico no encontrado: {archivo.archivo.path if archivo.archivo else 'Sin archivo'}")
-                raise Http404("Archivo no encontrado")
+                print("❌ Archivo no válido")
+                raise Http404("Archivo no válido")
                 
         except Exception as e:
             print(f"❌ Error sirviendo archivo público: {e}")
@@ -779,10 +760,10 @@ class VerArchivoPublicoView(View):
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            ip = x_forwarded_for.split(',')[0].strip()
         else:
             ip = request.META.get('REMOTE_ADDR')
-        return ip
+        return ip or '0.0.0.0'
 
 
 class DescargarArchivoPublicoView(View):
@@ -806,23 +787,27 @@ class DescargarArchivoPublicoView(View):
         
         # Servir archivo para descarga
         try:
-            if archivo.archivo and os.path.exists(archivo.archivo.path):
-                print(f"✅ Descargando archivo: {archivo.archivo.path}")
-                
-                response = FileResponse(
-                    open(archivo.archivo.path, 'rb'),
-                    as_attachment=True,
-                    filename=archivo.nombre_original
-                )
-                
-                # Headers adicionales
-                response['Content-Length'] = archivo.tamaño
-                response['X-Sendfile'] = archivo.archivo.path  # Para servidores optimizados
-                
-                return response
+            if archivo.archivo and archivo.archivo.name:
+                file_path = safe_join(settings.MEDIA_ROOT, archivo.archivo.name)
+                if os.path.exists(file_path):
+                    print(f"✅ Descargando archivo: {file_path}")
+                    
+                    response = FileResponse(
+                        open(file_path, 'rb'),
+                        as_attachment=True,
+                        filename=archivo.nombre_original
+                    )
+                    
+                    # Headers adicionales
+                    response['Content-Length'] = archivo.tamaño
+                    
+                    return response
+                else:
+                    print(f"❌ Archivo físico no encontrado para descarga: {file_path}")
+                    raise Http404("Archivo no encontrado")
             else:
-                print(f"❌ Archivo físico no encontrado para descarga: {archivo.archivo.path if archivo.archivo else 'Sin archivo'}")
-                raise Http404("Archivo no encontrado")
+                print("❌ Archivo no válido")
+                raise Http404("Archivo no válido")
                 
         except Exception as e:
             print(f"❌ Error en descarga pública: {e}")
@@ -831,7 +816,7 @@ class DescargarArchivoPublicoView(View):
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            ip = x_forwarded_for.split(',')[0].strip()
         else:
             ip = request.META.get('REMOTE_ADDR')
-        return ip
+        return ip or '0.0.0.0'
