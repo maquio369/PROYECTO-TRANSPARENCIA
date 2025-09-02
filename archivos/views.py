@@ -820,3 +820,136 @@ class DescargarArchivoPublicoView(View):
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip or '0.0.0.0'
+    
+
+
+class VersionesView(LoginRequiredMixin, ListView):
+    """Vista para listar versiones de una fracción específica"""
+    model = Archivo
+    template_name = 'archivos/versiones.html'
+    context_object_name = 'versiones'
+    
+    def get_queryset(self):
+        fraccion_id = self.kwargs['fraccion_id']
+        
+        # Verificar permisos
+        try:
+            perfil = self.request.user.perfilusuario
+            fraccion = get_object_or_404(Fraccion, id=fraccion_id)
+            
+            if fraccion.tipo_usuario_asignado != perfil.tipo_usuario:
+                messages.error(self.request, 'No tienes permisos para ver las versiones de esta fracción.')
+                return Archivo.objects.none()
+                
+        except PerfilUsuario.DoesNotExist:
+            messages.error(self.request, 'Tu usuario no tiene un perfil asignado.')
+            return Archivo.objects.none()
+        
+        # Obtener versiones agrupadas
+        versiones = Archivo.objects.filter(
+            fraccion_id=fraccion_id,
+            vigente=True
+        ).values(
+            'año', 'periodo_especifico', 'version', 'editada'
+        ).annotate(
+            cantidad_archivos=Count('id'),
+            fecha_creacion=Max('created_at')
+        ).order_by('-año', '-version')
+        
+        return versiones
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        fraccion_id = self.kwargs['fraccion_id']
+        context['fraccion'] = get_object_or_404(Fraccion, id=fraccion_id)
+        return context
+
+
+
+
+class EditarVersionView(LoginRequiredMixin, TemplateView):
+    """Vista para editar archivos de una versión específica"""
+    template_name = 'archivos/editar_version.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        fraccion_id = self.kwargs['fraccion_id']
+        año = self.kwargs['año']
+        periodo = self.kwargs['periodo']
+        version = self.kwargs['version']
+        
+        # Verificar permisos
+        try:
+            perfil = self.request.user.perfilusuario
+            fraccion = get_object_or_404(Fraccion, id=fraccion_id)
+            
+            if fraccion.tipo_usuario_asignado != perfil.tipo_usuario:
+                messages.error(self.request, 'No tienes permisos para editar esta versión.')
+                return context
+                
+        except PerfilUsuario.DoesNotExist:
+            messages.error(self.request, 'Tu usuario no tiene un perfil asignado.')
+            return context
+        
+        # Obtener archivos de la versión
+        archivos = Archivo.objects.filter(
+            fraccion_id=fraccion_id,
+            año=año,
+            periodo_especifico=periodo,
+            version=version,
+            vigente=True
+        ).order_by('nombre_original')
+        
+        context.update({
+            'fraccion': fraccion,
+            'archivos': archivos,
+            'año': año,
+            'periodo': periodo,
+            'version': version,
+        })
+        
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        """Procesar reemplazo de archivo individual"""
+        fraccion_id = self.kwargs['fraccion_id']
+        año = self.kwargs['año']
+        periodo = self.kwargs['periodo']
+        version = self.kwargs['version']
+        
+        archivo_id = request.POST.get('archivo_id')
+        nuevo_archivo = request.FILES.get('nuevo_archivo')
+        
+        if not archivo_id or not nuevo_archivo:
+            messages.error(request, 'Datos incompletos para reemplazar archivo.')
+            return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
+        
+        try:
+            # Obtener archivo a reemplazar
+            archivo = get_object_or_404(Archivo, id=archivo_id)
+            
+            # Verificar permisos
+            perfil = request.user.perfilusuario
+            if archivo.fraccion.tipo_usuario_asignado != perfil.tipo_usuario:
+                messages.error(request, 'No tienes permisos para editar este archivo.')
+                return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
+            
+            # Validar nuevo archivo
+            if nuevo_archivo.size > 104857600:  # 100 MB
+                messages.error(request, 'El archivo no puede superar los 100 MB.')
+                return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
+            
+            # Reemplazar archivo
+            archivo.archivo = nuevo_archivo
+            archivo.nombre_original = nuevo_archivo.name
+            archivo.tamaño = nuevo_archivo.size
+            archivo.editada = True
+            archivo.save()
+            
+            messages.success(request, f'Archivo "{nuevo_archivo.name}" reemplazado exitosamente.')
+            
+        except Exception as e:
+            messages.error(request, f'Error al reemplazar archivo: {e}')
+        
+        return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)

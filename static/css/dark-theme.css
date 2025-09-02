@@ -1,0 +1,315 @@
+/* ===== MODO OSCURO PERSONALIZADO ===== */
+
+/* Sidebar en modo oscuro */
+[data-bs-theme="dark"] .sidebar {
+    background: linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 100%);
+}
+
+[data-bs-theme="dark"] .sidebar .nav-link:hover,
+[data-bs-theme="dark"] .sidebar .nav-link.active {
+    background-color: rgba(255,255,255,0.15);
+}
+
+/* Main content background */
+[data-bs-theme="dark"] .main-content {
+    background-color: #212529;
+}
+
+/* Timeline en modo oscuro */
+[data-bs-theme="dark"] .timeline::before {
+    background: #495057;
+}
+
+[data-bs-theme="dark"] .timeline-marker {
+    background: #212529;
+}
+
+/* Gradientes personalizados en modo oscuro */
+[data-bs-theme="dark"] .stats-card {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+}
+
+/* File upload area */
+[data-bs-theme="dark"] .file-upload-area {
+    border-color: #495057;
+    background-color: #343a40;
+}
+
+[data-bs-theme="dark"] .file-upload-area:hover {
+    border-color: #6c757d;
+    background-color: #495057;
+}
+
+/* Toast notifications en modo oscuro */
+[data-bs-theme="dark"] .toast-success {
+    background-color: #1e3a5f;
+    border-left-color: #0d6efd;
+    color: #ffffff;
+}
+
+/* Gradientes de headers en modo oscuro */
+[data-bs-theme="dark"] .card-header[style*="gradient"] {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%) !important;
+}
+
+/* Mejoras para badges en modo oscuro */
+[data-bs-theme="dark"] .badge.bg-info {
+    background-color: #0dcaf0 !important;
+    color: #000 !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-success {
+    background-color: #198754 !important;
+}
+
+/* Tarjetas del dashboard en modo oscuro */
+[data-bs-theme="dark"] .fraccion-card {
+    background: #343a40 !important;
+    border-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] .fraccion-title {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .fraccion-description {
+    color: #adb5bd !important;
+}
+
+/* Tarjetas de estadísticas en modo oscuro */
+[data-bs-theme="dark"] .stat-card {
+    background: #343a40 !important;
+    border-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] .stat-number,
+[data-bs-theme="dark"] .stat-type {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .stat-label {
+    color: #adb5bd !important;
+}
+
+/* Headers de cards en modo oscuro */
+[data-bs-theme="dark"] .card-header.bg-light {
+    background: #495057 !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+/* Tabla en modo oscuro */
+[data-bs-theme="dark"] .table-light {
+    background: #495057 !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .archivo-row:hover {
+    background-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] .file-name {
+    color: #ffffff !important;
+}
+
+/* Tabla del listado de archivos en modo oscuro - FORZADO */
+[data-bs-theme="dark"] .table,
+[data-bs-theme="dark"] .table > :not(caption) > * > * {
+    color: #ffffff !important;
+    background-color: #343a40 !important;
+}
+
+[data-bs-theme="dark"] .table tbody tr,
+[data-bs-theme="dark"] .table tbody tr td {
+    background-color: #343a40 !important;
+    border-color: #495057 !important;
+    color: #ffffff !important;
+}
+
+/* Eliminar COMPLETAMENTE efectos hover en tablas del modo oscuro */
+[data-bs-theme="dark"] .table tbody tr {
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* Anular hover de Bootstrap completamente */
+[data-bs-theme="dark"] .table-hover > tbody > tr:hover > * {
+    --bs-table-bg-state: transparent !important;
+    background-color: transparent !important;
+}
+
+[data-bs-theme="dark"] .table tbody tr:hover,
+[data-bs-theme="dark"] .table tbody tr:hover > td,
+[data-bs-theme="dark"] .table tbody tr:hover > th {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    position: relative !important;
+    z-index: 10 !important;
+    background-color: transparent !important;
+    --bs-table-bg: transparent !important;
+    --bs-table-bg-state: transparent !important;
+}
+
+[data-bs-theme="dark"] .table-hover tbody tr:hover,
+[data-bs-theme="dark"] .table-hover tbody tr:hover > td,
+[data-bs-theme="dark"] .table-hover tbody tr:hover > th {
+    background-color: transparent !important;
+    --bs-table-bg-state: transparent !important;
+}
+
+/* Tabla específica del listado de archivos - sin hover */
+[data-bs-theme="dark"] #tableView .table tbody tr {
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+[data-bs-theme="dark"] #tableView .table-hover > tbody > tr:hover > * {
+    --bs-table-bg-state: transparent !important;
+    background-color: transparent !important;
+}
+
+[data-bs-theme="dark"] #tableView .table tbody tr:hover,
+[data-bs-theme="dark"] #tableView .table tbody tr:hover > td,
+[data-bs-theme="dark"] #tableView .table tbody tr:hover > th {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    position: relative !important;
+    z-index: 10 !important;
+    background-color: transparent !important;
+    --bs-table-bg: transparent !important;
+    --bs-table-bg-state: transparent !important;
+}
+
+[data-bs-theme="dark"] #tableView .table-hover tbody tr:hover,
+[data-bs-theme="dark"] #tableView .table-hover tbody tr:hover > td,
+[data-bs-theme="dark"] #tableView .table-hover tbody tr:hover > th {
+    background-color: transparent !important;
+    --bs-table-bg-state: transparent !important;
+}
+
+/* Forzar que no haya cambios de color en hover */
+[data-bs-theme="dark"] .table tbody tr:hover {
+    color: inherit !important;
+}
+
+[data-bs-theme="dark"] .table tbody tr:hover td {
+    color: inherit !important;
+}
+
+[data-bs-theme="dark"] .table-success,
+[data-bs-theme="dark"] .table-success td {
+    background-color: #1e4d3a !important;
+    border-color: #28a745 !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .table-light,
+[data-bs-theme="dark"] .table-light td {
+    background-color: #495057 !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .table thead th {
+    background-color: #495057 !important;
+    color: #ffffff !important;
+    border-color: #6c757d !important;
+}
+
+[data-bs-theme="dark"] .fw-bold,
+[data-bs-theme="dark"] .table .fw-bold {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .table .text-muted {
+    color: #adb5bd !important;
+}
+
+/* Tarjetas de vista grid - efecto hover para ambos modos */
+#gridView .card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+#gridView .card:hover {
+    transform: translateY(-4px) !important;
+}
+
+/* Sombra específica para modo claro */
+[data-bs-theme="light"] #gridView .card:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Tarjetas de vista grid en modo oscuro */
+[data-bs-theme="dark"] #gridView .card {
+    background-color: #343a40 !important;
+    border-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] #gridView .card:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-bs-theme="dark"] #gridView .card-title {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] #gridView .card-text {
+    color: #adb5bd !important;
+}
+
+/* Forzar colores en todas las celdas */
+[data-bs-theme="dark"] .table td,
+[data-bs-theme="dark"] .table th {
+    background-color: inherit !important;
+    color: inherit !important;
+}
+
+/* Timeline markers mejorados */
+[data-bs-theme="dark"] .timeline-marker {
+    background: #212529;
+    border-color: #495057;
+}
+
+[data-bs-theme="dark"] .timeline-item-current .timeline-marker {
+    border-color: #198754;
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.2);
+}
+
+/* Transiciones suaves para cambio de tema */
+* {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Botón de tema con efecto hover */
+#theme-toggle {
+    transition: all 0.2s ease;
+}
+
+#theme-toggle:hover {
+    transform: scale(1.05);
+}
+
+/* Tarjetas de editar-version en modo oscuro */
+[data-bs-theme="dark"] .floating-card {
+    background: linear-gradient(135deg, #343a40 0%, #2d3339 100%) !important;
+    border-color: #495057 !important;
+}
+
+[data-bs-theme="dark"] .floating-card:hover {
+    background: linear-gradient(135deg, #3d4349 0%, #343a40 100%) !important;
+}
+
+[data-bs-theme="dark"] .floating-card .card-header {
+    background: linear-gradient(135deg, #495057 0%, #3d4349 100%) !important;
+    color: #ffffff !important;
+    border-color: #6c757d !important;
+}
+
+[data-bs-theme="dark"] .floating-card .card-header h6 {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .floating-card .card-body {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .floating-card .text-muted {
+    color: #adb5bd !important;
+}

@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
 
-{% block page_title %}Listado de Archivos{% endblock %}
+{% block page_title %}
+<div class="d-flex align-items-center">
+    <i class="bi bi-list-ul me-2 text-primary"></i>
+    <span>Listado de Archivos</span>
+</div>
+{% endblock %}
 
 {% block page_actions %}
 <a href="{% url 'archivos:cargar_archivo' %}" class="btn btn-primary">
@@ -11,13 +16,12 @@
 {% block content %}
 <!-- Filtros MEJORADOS -->
 <div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h6 class="mb-0"><i class="bi bi-funnel"></i> Filtros</h6>
-        <!-- ✅ BOTÓN EXPORTAR EXCEL -->
-        <button type="button" class="btn btn-success btn-sm" onclick="exportarExcel()">
-            <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+    <div class="card-header bg-light">
+        <button class="btn btn-link p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
+            <h6 class="mb-0"><i class="bi bi-funnel"></i> Filtros <i class="bi bi-chevron-down" id="filtrosIcon"></i></h6>
         </button>
     </div>
+    <div class="collapse show" id="filtrosCollapse">
     <div class="card-body">
         <form method="get" class="row g-3" id="filtrosForm">
             <div class="col-md-3">
@@ -64,9 +68,12 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label">&nbsp;</label>
-                <div class="d-grid">
-                    <button type="submit" class="btn btn-outline-primary">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
                         <i class="bi bi-search"></i> Buscar
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="exportarExcel()" title="Exportar a Excel">
+                        <i class="bi bi-file-earmark-excel"></i>
                     </button>
                 </div>
             </div>
@@ -101,6 +108,7 @@
                 </small>
             </div>
         </div>
+    </div>
     </div>
 </div>
 
@@ -151,7 +159,8 @@
                                     <i class="bi bi-file-earmark-pdf text-danger me-2"></i>
                                     <div>
                                         <div class="fw-bold">{{ archivo.nombre_original|truncatewords:4 }}</div>
-                                        <small class="text-muted">v{{ archivo.version }}</small>
+                                        <small class="text-muted">{{ archivo.get_version_display }}
+</small>
                                     </div>
                                 </div>
                             </td>
@@ -171,24 +180,23 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="btn-group btn-group-sm">
+                                <div class="d-flex gap-1">
                                     <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" 
-                                       class="btn btn-outline-primary" title="Ver archivo" target="_blank">
-                                        <i class="bi bi-eye"></i>
+                                       class="btn btn-primary btn-sm" title="Ver archivo" target="_blank">
+                                        <i class="bi bi-eye-fill"></i>
                                     </a>
                                     <a href="{% url 'archivos:descargar_archivo' archivo.id %}" 
-                                       class="btn btn-outline-success" title="Descargar">
+                                       class="btn btn-success btn-sm" title="Descargar">
                                         <i class="bi bi-download"></i>
                                     </a>
-                                    <!-- ✅ BOTÓN COPIAR ENLACE EN LISTADO -->
                                     <button type="button" 
-                                            class="btn btn-outline-info"
+                                            class="btn btn-info btn-sm"
                                             onclick="copiarEnlaceRapido('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
-                                            title="Copiar enlace público">
-                                        <i class="bi bi-link-45deg"></i>
+                                            title="Compartir enlace">
+                                        <i class="bi bi-share"></i>
                                     </button>
                                     <a href="{% url 'archivos:historial' archivo.fraccion.id %}" 
-                                       class="btn btn-outline-secondary" title="Ver historial">
+                                       class="btn btn-warning btn-sm" title="Ver historial">
                                         <i class="bi bi-clock-history"></i>
                                     </a>
                                 </div>
@@ -223,19 +231,20 @@
                                         <i class="bi bi-clock"></i> {{ archivo.created_at|date:"d/m/Y" }}
                                     </small>
                                 </p>
-                                <div class="btn-group w-100" role="group">
-                                    <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" class="btn btn-outline-primary btn-sm" target="_blank">
-                                        <i class="bi bi-eye"></i>
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" class="btn btn-primary btn-sm" target="_blank" title="Ver archivo">
+                                        <i class="bi bi-eye-fill"></i>
                                     </a>
-                                    <a href="{% url 'archivos:descargar_archivo' archivo.id %}" class="btn btn-outline-success btn-sm">
+                                    <a href="{% url 'archivos:descargar_archivo' archivo.id %}" class="btn btn-success btn-sm" title="Descargar">
                                         <i class="bi bi-download"></i>
                                     </a>
                                     <button type="button" 
-                                            class="btn btn-outline-info btn-sm"
-                                            onclick="copiarEnlaceRapido('{{ archivo.id }}', '{{ archivo.nombre_original }}')">
-                                        <i class="bi bi-link-45deg"></i>
+                                            class="btn btn-info btn-sm"
+                                            onclick="copiarEnlaceRapido('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
+                                            title="Compartir enlace">
+                                        <i class="bi bi-share"></i>
                                     </button>
-                                    <a href="{% url 'archivos:historial' archivo.fraccion.id %}" class="btn btn-outline-secondary btn-sm">
+                                    <a href="{% url 'archivos:historial' archivo.fraccion.id %}" class="btn btn-warning btn-sm" title="Ver historial">
                                         <i class="bi bi-clock-history"></i>
                                     </a>
                                 </div>
@@ -422,6 +431,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Crear contenedor de toasts
     obtenerContainerToast();
+    
+    // Manejar cambio de icono en colapso de filtros
+    const filtrosCollapse = document.getElementById('filtrosCollapse');
+    const filtrosIcon = document.getElementById('filtrosIcon');
+    
+    filtrosCollapse.addEventListener('show.bs.collapse', function() {
+        filtrosIcon.className = 'bi bi-chevron-up';
+    });
+    
+    filtrosCollapse.addEventListener('hide.bs.collapse', function() {
+        filtrosIcon.className = 'bi bi-chevron-down';
+    });
     
     console.log('📋 Listado con exportación inicializado');
 });

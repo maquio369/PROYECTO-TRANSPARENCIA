@@ -108,7 +108,8 @@ class Archivo(models.Model):
     # Control de versiones
     vigente = models.BooleanField(default=True, verbose_name='Vigente')
     version = models.IntegerField(default=1, verbose_name='Versión')
-    
+    editada = models.BooleanField(default=False, verbose_name='Editada')
+
     # Metadatos
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Carga')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Última Modificación')
@@ -214,6 +215,13 @@ class Archivo(models.Model):
             except:
                 return False
         return False
+    
+    def get_version_display(self):
+        """Obtiene el display de la versión con indicador de editada"""
+        if self.editada:
+            return f"v{self.version} (editada)"
+        return f"v{self.version}"
+
 
 # ✅ REEMPLAZAR LA CLASE HistorialAcceso EN archivos/models.py
 

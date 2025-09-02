@@ -1,6 +1,9 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
+from . import views
+from .views import VersionesView, EditarVersionView
+
 
 app_name = 'archivos'
 
@@ -30,6 +33,9 @@ urlpatterns = [
     
     # Estadísticas
     path('estadisticas/', views.EstadisticasView.as_view(), name='estadisticas'),
+    path('versiones/<int:fraccion_id>/', VersionesView.as_view(), name='versiones'),
+    path('editar-version/<int:fraccion_id>/<int:año>/<str:periodo>/<int:version>/', EditarVersionView.as_view(), name='editar_version'),
+
 
     
 ]

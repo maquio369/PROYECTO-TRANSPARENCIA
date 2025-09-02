@@ -141,8 +141,12 @@
                                     </p>
                                     <div class="fraccion-actions">
                                         <a href="{% url 'archivos:historial' fraccion.id %}" 
-                                           class="btn btn-sm btn-outline-primary">
+                                           class="btn btn-sm btn-primary">
                                             <i class="bi bi-clock-history"></i> Historial
+                                        </a>
+                                        <a href="{% url 'archivos:versiones' fraccion.id %}" 
+                                           class="btn btn-sm btn-success">
+                                            <i class="bi bi-layers"></i> Versiones
                                         </a>
                                     </div>
                                 </div>
@@ -176,8 +180,8 @@
                     <i class="bi bi-clock-history me-2"></i>
                     Archivos Recientes
                 </h5>
-                <a href="{% url 'archivos:listado_archivos' %}" class="btn btn-sm btn-outline-primary">
-                    Ver todos
+                <a href="{% url 'archivos:listado_archivos' %}" class="btn btn-sm text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+                    <i class="bi bi-list-ul"></i> Ver todos
                 </a>
             </div>
             <div class="card-body p-0">
@@ -231,14 +235,14 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm">
+                                    <div class="d-flex gap-1">
                                         <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" 
-                                           class="btn btn-outline-primary" 
+                                           class="btn btn-primary btn-sm" 
                                            title="Ver archivo" target="_blank">
-                                            <i class="bi bi-eye"></i>
+                                            <i class="bi bi-eye-fill"></i>
                                         </a>
                                         <a href="{% url 'archivos:descargar_archivo' archivo.id %}" 
-                                           class="btn btn-outline-success"
+                                           class="btn btn-success btn-sm"
                                            title="Descargar">
                                             <i class="bi bi-download"></i>
                                         </a>

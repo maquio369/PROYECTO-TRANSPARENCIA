@@ -1,20 +1,27 @@
 {% extends 'base.html' %}
 
-{% block page_title %}Historial - {{ fraccion.nombre }}{% endblock %}
+{% block page_title %}
+<div class="d-flex align-items-center">
+    <i class="bi bi-clock-history me-2 text-primary"></i>
+    <span>Historial - {{ fraccion.nombre }}</span>
+</div>
+{% endblock %}
 
 {% block page_actions %}
-<a href="{% url 'archivos:listado_archivos' %}" class="btn btn-secondary">
-    <i class="bi bi-arrow-left"></i> Volver al Listado
-</a>
-<a href="{% url 'archivos:cargar_archivo' %}" class="btn btn-primary">
-    <i class="bi bi-upload"></i> Cargar Nueva Versión
-</a>
+<div class="d-flex gap-2">
+    <a href="{% url 'archivos:listado_archivos' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Volver al Listado
+    </a>
+    <a href="{% url 'archivos:cargar_archivo' %}" class="btn btn-primary">
+        <i class="bi bi-upload"></i> Cargar Nueva Versión
+    </a>
+</div>
 {% endblock %}
 
 {% block content %}
 <!-- Información de la fracción -->
 <div class="card mb-4">
-    <div class="card-header bg-info text-white">
+    <div class="card-header text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
         <h5 class="mb-0">
             <i class="bi bi-folder2-open"></i> 
             Fracción {{ fraccion.numero }} - {{ fraccion.nombre }}
@@ -81,24 +88,23 @@
                                 </div>
                             </div>
 
-                            <!-- ✅ BOTONES SIMPLIFICADOS -->
-                            <div class="btn-group btn-group-sm">
+                            <!-- ✅ BOTONES MEJORADOS -->
+                            <div class="d-flex gap-2 flex-wrap">
                                 <a href="{% url 'archivos:ver_archivo_publico' archivo.id %}" 
-                                   class="btn btn-outline-primary"
+                                   class="btn btn-primary btn-sm"
                                    title="Ver archivo" target="_blank">
-                                    <i class="bi bi-eye"></i> Ver
+                                    <i class="bi bi-eye-fill"></i> Ver
                                 </a>
                                 <a href="{% url 'archivos:descargar_archivo' archivo.id %}" 
-                                   class="btn btn-outline-success"
+                                   class="btn btn-success btn-sm"
                                    title="Descargar archivo">
                                     <i class="bi bi-download"></i> Descargar
                                 </a>
-                                <!-- ✅ BOTÓN COPIAR ENLACE SIMPLIFICADO -->
                                 <button type="button" 
-                                        class="btn btn-outline-info"
+                                        class="btn btn-info btn-sm"
                                         onclick="copiarEnlaceDirecto('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
                                         title="Copiar enlace público del archivo">
-                                    <i class="bi bi-link-45deg"></i> Copiar Enlace
+                                    <i class="bi bi-share"></i> Compartir
                                 </button>
                             </div>
                         </div>
@@ -123,7 +129,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: #dee2e6;
+    background: var(--bs-border-color);
 }
 
 .timeline-item {
@@ -141,11 +147,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: white;
+    background: var(--bs-body-bg);
+    border: 2px solid var(--bs-border-color);
+    border-radius: 50%;
 }
 
 .timeline-item-current .timeline-marker {
     animation: pulse 2s infinite;
+    border-color: var(--bs-success);
 }
 
 @keyframes pulse {
@@ -167,8 +176,9 @@
 }
 
 .toast-success {
-    background-color: #d1edff;
-    border-left: 4px solid #0d6efd;
+    background-color: var(--bs-primary-bg-subtle);
+    border-left: 4px solid var(--bs-primary);
+    color: var(--bs-body-color);
 }
 </style>
 
