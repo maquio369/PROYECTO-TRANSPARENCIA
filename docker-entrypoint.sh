@@ -17,7 +17,12 @@ python manage.py migrate --noinput
 
 # Recopilar archivos estáticos
 echo "Recopilando archivos estáticos..."
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput --clear
+
+# Verificar que los archivos estáticos se copiaron correctamente
+echo "Verificando archivos estáticos..."
+ls -la /app/staticfiles/css/ || echo "Directorio CSS no encontrado"
+ls -la /app/static/css/ || echo "Directorio static/css no encontrado"
 
 # Cargar datos iniciales si no existen
 echo "Cargando datos iniciales..."
