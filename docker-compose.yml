@@ -16,9 +16,8 @@ services:
       - media_files:/app/media
       - static_files:/app/staticfiles
     ports:
-      - "3018:8000"
+      - "3018:8001"
     restart: unless-stopped
-    network_mode: host
 
 volumes:
   media_files:

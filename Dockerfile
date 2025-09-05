@@ -31,7 +31,7 @@ RUN mkdir -p /app/media/archivos /app/staticfiles
 RUN chmod -R 755 /app/media
 
 # Exponer puerto
-EXPOSE 8000
+EXPOSE 8001
 
 # Script de entrada
 COPY docker-entrypoint.sh /app/
@@ -39,4 +39,4 @@ RUN chmod +x /app/docker-entrypoint.sh
 
 # Comando por defecto
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8001"]
