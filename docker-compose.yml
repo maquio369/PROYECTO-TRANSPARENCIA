@@ -1,40 +1,25 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15
-    container_name: articulo65_db
-    environment:
-      POSTGRES_DB: repositorio_articulo65
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "3019:5432"
-    restart: unless-stopped
-
   web:
     build: .
     container_name: articulo65_web
     environment:
       - DEBUG=False
       - SECRET_KEY=django-insecure-docker-key-change-in-production
-      - DB_NAME=repositorio_articulo65
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres123
-      - DB_HOST=db
-      - DB_PORT=5432
+      - DB_NAME=test2
+      - DB_USER=maquio
+      - DB_PASSWORD=maquio92
+      - DB_HOST=172.16.35.75
+      - DB_PORT=32768
     volumes:
       - media_files:/app/media
       - static_files:/app/staticfiles
     ports:
       - "3018:8000"
-    depends_on:
-      - db
     restart: unless-stopped
+    network_mode: host
 
 volumes:
-  postgres_data:
   media_files:
   static_files:
