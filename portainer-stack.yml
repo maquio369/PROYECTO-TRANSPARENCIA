@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: articulo65_db
+    environment:
+      POSTGRES_DB: repositorio_articulo65
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    volumes:
+      - articulo65_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - articulo65_network
+
+  web:
+    image: articulo65_web:latest
+    container_name: articulo65_web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=django-insecure-change-this-in-production
+      - DB_NAME=repositorio_articulo65
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DJANGO_SETTINGS_MODULE=repositorio_articulo65.settings_docker
+    volumes:
+      - articulo65_media_files:/app/media
+      - articulo65_static_files:/app/staticfiles
+    ports:
+      - "3018:8000"
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - articulo65_network
+
+volumes:
+  articulo65_postgres_data:
+    driver: local
+  articulo65_media_files:
+    driver: local
+  articulo65_static_files:
+    driver: local
+
+networks:
+  articulo65_network:
+    driver: bridge
