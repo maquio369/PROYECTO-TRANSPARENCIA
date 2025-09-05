@@ -23,7 +23,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - DEBUG=False
+      - DEBUG=True
       - SECRET_KEY=django-insecure-change-this-in-production
       - DB_NAME=repositorio_articulo65
       - DB_USER=postgres

@@ -2,7 +2,7 @@ from .settings import *
 import os
 
 # Configuración específica para Docker
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'  # Cambiar a True temporalmente
 
 # Hosts permitidos para Docker
 ALLOWED_HOSTS = ['172.16.35.75', 'localhost', '127.0.0.1', '*']
