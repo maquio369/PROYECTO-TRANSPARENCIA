@@ -10,6 +10,8 @@ services:
       POSTGRES_PASSWORD: postgres123
     volumes:
       - articulo65_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "3019:5432"
     restart: unless-stopped
     networks:
       - articulo65_network
