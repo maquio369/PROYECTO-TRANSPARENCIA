@@ -24,6 +24,13 @@ DATABASES = {
 STATIC_ROOT = '/app/staticfiles'
 STATICFILES_DIRS = []
 
+# Servir archivos estáticos en desarrollo
+if DEBUG:
+    import os
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+
 # Archivos media para Docker
 MEDIA_ROOT = '/app/media'
 
