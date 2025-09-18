@@ -115,6 +115,13 @@ class CargarArchivoView(LoginRequiredMixin, CreateView):
         archivos_creados = []
         archivos_con_error = []
     
+        # ✅ VALIDACIÓN PREVIA: Verificar nombres duplicados en la carga actual
+        nombres_subidos = [f.name for f in archivos_subidos]
+        if len(nombres_subidos) != len(set(nombres_subidos)):
+            messages.error(self.request, '<strong>Carga detenida:</strong> No puedes subir dos archivos con el mismo nombre en la misma operación.', extra_tags='danger')
+            return self.form_invalid(form)
+
+
            # Usar transacción atómica para todos los archivos
         try:
             with transaction.atomic():
@@ -211,16 +218,16 @@ class CargarArchivoView(LoginRequiredMixin, CreateView):
             if len(archivos_creados) == 1:
                 messages.success(
                     self.request, 
-                    f'✅ Archivo "{archivos_creados[0].nombre_original}" cargado exitosamente como versión {nueva_version}.'
+                    f'<strong>¡Éxito!</strong> El archivo "{archivos_creados[0].nombre_original}" se cargó correctamente como <strong>versión {nueva_version}</strong>.'
                 )
             else:
                 messages.success(
                     self.request, 
-                    f'✅ {len(archivos_creados)} archivos cargados exitosamente como versión {nueva_version}.'
+                    f'<strong>¡Éxito!</strong> Se cargaron {len(archivos_creados)} archivos como <strong>versión {nueva_version}</strong>.'
                 )
                 # Mostrar lista de archivos cargados
-                for archivo in archivos_creados:
-                    messages.info(self.request, f"📁 {archivo.nombre_original}")
+                # for archivo in archivos_creados:
+                #     messages.info(self.request, f"📁 {archivo.nombre_original}")
     
         print(f"✅ Proceso completado: {len(archivos_creados)} archivos creados")
         print("=== FIN DEBUG MÚLTIPLES ARCHIVOS ===")
@@ -238,9 +245,9 @@ class CargarArchivoView(LoginRequiredMixin, CreateView):
         for field, errors in form.errors.items():
             for error in errors:
                 if field == '__all__':
-                    messages.error(self.request, f"Error: {error}")
+                    messages.error(self.request, f"Error: {error}", extra_tags='danger')
                 else:
-                    messages.error(self.request, f"Error en {field}: {error}")
+                    messages.error(self.request, f"Error en {field}: {error}", extra_tags='danger')
         
         return super().form_invalid(form)
 
@@ -912,44 +919,132 @@ class EditarVersionView(LoginRequiredMixin, TemplateView):
         return context
     
     def post(self, request, *args, **kwargs):
-        """Procesar reemplazo de archivo individual"""
+        """
+        Procesa dos acciones:
+        1. Reemplazar un archivo individual.
+        2. Agregar nuevos archivos a la versión actual.
+        """
         fraccion_id = self.kwargs['fraccion_id']
         año = self.kwargs['año']
         periodo = self.kwargs['periodo']
         version = self.kwargs['version']
         
-        archivo_id = request.POST.get('archivo_id')
-        nuevo_archivo = request.FILES.get('nuevo_archivo')
-        
-        if not archivo_id or not nuevo_archivo:
-            messages.error(request, 'Datos incompletos para reemplazar archivo.')
+        # Determinar la acción a realizar
+        action = request.POST.get('action')
+
+        if action == 'reemplazar':
+            return self.reemplazar_archivo(request, fraccion_id, año, periodo, version)
+        elif action == 'agregar':
+            return self.agregar_archivos(request, fraccion_id, año, periodo, version)
+        else:
+            messages.error(request, 'Acción no válida.')
             return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
-        
+
+    def reemplazar_archivo(self, request, fraccion_id, año, periodo, version):
+        """Lógica para reemplazar un archivo existente."""
+        archivo_id = request.POST.get('archivo_id')
+        nuevo_archivo_reemplazo = request.FILES.get('nuevo_archivo_reemplazo')
+
+        if not archivo_id or not nuevo_archivo_reemplazo:
+            messages.error(request, 'Datos incompletos para reemplazar el archivo.')
+            return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
+
         try:
-            # Obtener archivo a reemplazar
-            archivo = get_object_or_404(Archivo, id=archivo_id)
+            archivo_a_reemplazar = get_object_or_404(Archivo, id=archivo_id)
             
             # Verificar permisos
             perfil = request.user.perfilusuario
-            if archivo.fraccion.tipo_usuario_asignado != perfil.tipo_usuario:
+            if archivo_a_reemplazar.fraccion.tipo_usuario_asignado != perfil.tipo_usuario:
                 messages.error(request, 'No tienes permisos para editar este archivo.')
                 return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
             
             # Validar nuevo archivo
-            if nuevo_archivo.size > 104857600:  # 100 MB
+            if nuevo_archivo_reemplazo.size > 104857600:  # 100 MB
                 messages.error(request, 'El archivo no puede superar los 100 MB.')
                 return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
             
             # Reemplazar archivo
-            archivo.archivo = nuevo_archivo
-            archivo.nombre_original = nuevo_archivo.name
-            archivo.tamaño = nuevo_archivo.size
-            archivo.editada = True
-            archivo.save()
+            archivo_a_reemplazar.archivo = nuevo_archivo_reemplazo
+            archivo_a_reemplazar.nombre_original = nuevo_archivo_reemplazo.name
+            archivo_a_reemplazar.tamaño = nuevo_archivo_reemplazo.size
+            archivo_a_reemplazar.editada = True
+            archivo_a_reemplazar.save()
             
-            messages.success(request, f'Archivo "{nuevo_archivo.name}" reemplazado exitosamente.')
+            messages.success(request, f'<strong>Archivo actualizado:</strong> "{nuevo_archivo_reemplazo.name}" fue reemplazado en la versión {version}.')
             
         except Exception as e:
             messages.error(request, f'Error al reemplazar archivo: {e}')
         
+        return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
+
+    def agregar_archivos(self, request, fraccion_id, año, periodo, version):
+        """Lógica para agregar nuevos archivos a la versión."""
+        archivos_nuevos = request.FILES.getlist('nuevos_archivos_agregar')
+
+        if not archivos_nuevos:
+            messages.warning(request, 'No seleccionaste ningún archivo para agregar.')
+            return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
+
+        try:
+            with transaction.atomic():
+                fraccion = get_object_or_404(Fraccion, id=fraccion_id)
+                perfil = request.user.perfilusuario
+
+                # Verificar permisos una sola vez
+                if fraccion.tipo_usuario_asignado != perfil.tipo_usuario:
+                    messages.error(request, 'No tienes permisos para agregar archivos a esta fracción.', extra_tags='danger')
+                    return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
+
+                # ✅ VALIDACIÓN: Verificar si los nuevos archivos ya existen en esta versión
+                nombres_existentes = set(Archivo.objects.filter(
+                    fraccion_id=fraccion_id, año=año, periodo_especifico=periodo, version=version
+                ).values_list('nombre_original', flat=True))
+
+                nombres_nuevos = {f.name for f in archivos_nuevos}
+
+                # Verificar duplicados dentro de la nueva carga
+                if len(archivos_nuevos) != len(nombres_nuevos):
+                    messages.error(request, '<strong>Operación detenida:</strong> No puedes agregar dos archivos con el mismo nombre.', extra_tags='danger')
+                    return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
+
+                archivos_duplicados = nombres_existentes.intersection(nombres_nuevos)
+                if archivos_duplicados:
+                    messages.error(request, f'"{", ".join(archivos_duplicados)}" ya existe(n) en esta versión.', extra_tags='danger')
+                    return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)
+
+                # Marcar toda la versión como 'editada'
+                Archivo.objects.filter(fraccion_id=fraccion_id, año=año, periodo_especifico=periodo, version=version).update(editada=True)
+
+                archivos_creados_count = 0
+                for archivo_file in archivos_nuevos:
+                    # Aquí puedes añadir validaciones individuales si lo deseas (tamaño, tipo, etc.)
+                    
+                    # ✅ CORRECCIÓN: Obtener el tipo_periodo de un archivo existente en la versión.
+                    # En lugar de fraccion.fraccion_archivos, consultamos directamente el modelo Archivo.
+                    archivo_existente = Archivo.objects.filter(
+                        fraccion_id=fraccion_id, año=año, periodo_especifico=periodo, version=version
+                    ).first()
+
+                    if not archivo_existente:
+                        raise Exception("No se encontró un archivo base para determinar el tipo de período.")
+
+                    Archivo.objects.create(
+                        fraccion=fraccion,
+                        usuario=request.user,
+                        tipo_periodo=archivo_existente.tipo_periodo, # Tomar de un archivo existente
+                        año=año,
+                        periodo_especifico=periodo,
+                        archivo=archivo_file,
+                        nombre_original=archivo_file.name,
+                        tamaño=archivo_file.size,
+                        vigente=True,
+                        version=version, # Misma versión
+                        editada=True # Marcar como editado
+                    )
+                    archivos_creados_count += 1
+
+            messages.success(request, f'<strong>Nuevos archivos agregados:</strong> Se añadieron {archivos_creados_count} archivo(s) a la versión {version}.')
+        except Exception as e:
+            messages.error(request, f'Error al agregar nuevos archivos: {e}', extra_tags='danger')
+
         return redirect('archivos:editar_version', fraccion_id=fraccion_id, año=año, periodo=periodo, version=version)

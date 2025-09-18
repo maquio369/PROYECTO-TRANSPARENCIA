@@ -22,6 +22,34 @@
                 </a>
             </div>
 
+            <!-- ✅ NUEVO: Formulario para AGREGAR archivos -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-plus-circle-fill"></i> Agregar Nuevos Archivos a esta Versión</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="agregar">
+                        <div class="mb-3">
+                            <label for="nuevos_archivos_agregar" class="form-label">Selecciona uno o más archivos para añadir a la versión {{ version }}:</label>
+                            <input type="file" 
+                                   class="form-control" 
+                                   name="nuevos_archivos_agregar" 
+                                   id="nuevos_archivos_agregar"
+                                   accept=".pdf,.doc,.docx,.xls,.xlsx"
+                                   multiple 
+                                   required>
+                            <div class="form-text">Puedes seleccionar varios archivos a la vez. Se añadirán a la versión actual.</div>
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-upload"></i> Agregar Archivos
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+
             {% if archivos %}
                 <div class="card">
                     <div class="card-header">
@@ -52,13 +80,14 @@
                                         <!-- Formulario para reemplazar archivo -->
                                         <form method="post" enctype="multipart/form-data" class="mb-3">
                                             {% csrf_token %}
+                                            <input type="hidden" name="action" value="reemplazar">
                                             <input type="hidden" name="archivo_id" value="{{ archivo.id }}">
                                             
                                             <div class="mb-2">
                                                 <label class="form-label text-muted small">Reemplazar archivo:</label>
                                                 <input type="file" 
                                                        class="form-control form-control-sm" 
-                                                       name="nuevo_archivo" 
+                                                       name="nuevo_archivo_reemplazo" 
                                                        accept=".pdf,.doc,.docx,.xls,.xlsx"
                                                        required>
                                             </div>
@@ -91,8 +120,8 @@
                 <!-- Información adicional -->
                 <div class="alert alert-info mt-3">
                     <i class="bi bi-info-circle"></i>
-                    <strong>Importante:</strong> Al reemplazar un archivo, la versión se marcará como "editada" 
-                    y el archivo anterior será reemplazado permanentemente.
+                    <strong>Importante:</strong> Al reemplazar o agregar archivos, la versión completa se marcará como "editada" para mantener un registro de los cambios. 
+                    El archivo reemplazado se sobreescribe permanentemente.
                 </div>
                 
             {% else %}
