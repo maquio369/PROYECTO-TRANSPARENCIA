@@ -71,12 +71,11 @@ class ArchivoForm(forms.ModelForm):
                 'required': True,
                 'value': datetime.now().year  # ← CAMBIO: Año actual dinámico
             }),
-            'periodo_especifico': forms.TextInput(attrs={
+            # ✅ CAMBIO: Ahora es un Select que se llenará dinámicamente
+            'periodo_especifico': forms.Select(attrs={
                 'class': 'form-control',
-                'placeholder': 'Ej: T1, T2, S1, S2, A',  # ← CAMBIO: Actualizado placeholder
                 'required': True,
-                'maxlength': 20
-            })
+            }),
         }
         
     
@@ -221,20 +220,6 @@ class ArchivoForm(forms.ModelForm):
         
         return año
     
-    def clean_periodo_especifico(self):
-        """Validación del periodo específico"""
-        periodo_especifico = self.cleaned_data.get('periodo_especifico')
-        
-        if periodo_especifico:
-            # Limpiar y normalizar
-            periodo_especifico = periodo_especifico.strip().upper()
-            
-            # Validar longitud
-            if len(periodo_especifico) > 20:
-                raise ValidationError('El periodo específico no puede tener más de 20 caracteres.')
-        
-        return periodo_especifico
-    
     def clean(self):
         """Validación global del formulario"""
         cleaned_data = super().clean()
@@ -242,7 +227,8 @@ class ArchivoForm(forms.ModelForm):
         print(f"Datos limpios recibidos: {cleaned_data}")
 
         self._validate_required_fields(cleaned_data)
-        self._validate_periodo_especifico(cleaned_data)
+        # Ya no es necesaria la validación manual de periodo_especifico
+        # self._validate_periodo_especifico(cleaned_data)
         self._validate_archivo_vigente(cleaned_data)
 
         print(f"Datos finales: {cleaned_data}")
@@ -266,37 +252,6 @@ class ArchivoForm(forms.ModelForm):
             if not valor:
                 print(f"❌ Campo requerido faltante: {campo}")
                 self.add_error(campo, f'Este campo es requerido.')
-
-    def _validate_periodo_especifico(self, cleaned_data):
-        tipo_periodo = cleaned_data.get('tipo_periodo')
-        periodo_especifico = cleaned_data.get('periodo_especifico')
-        if tipo_periodo and periodo_especifico:
-            periodo_especifico = periodo_especifico.upper()
-            print(f"Validando periodo: {tipo_periodo} - {periodo_especifico}")
-            periodo_valido = False
-            if tipo_periodo == 'trimestral':
-                if periodo_especifico in ['T1', 'T2', 'T3', 'T4']:
-                    periodo_valido = True
-                else:
-                    self.add_error('periodo_especifico',
-                                   'Para periodo trimestral use: T1, T2, T3, T4')
-            elif tipo_periodo == 'semestral':
-                if periodo_especifico in ['S1', 'S2']:
-                    periodo_valido = True
-                else:
-                    self.add_error('periodo_especifico',
-                                   'Para periodo semestral use: S1, S2')
-            elif tipo_periodo == 'anual':
-                if periodo_especifico in ['A', 'ANUAL']:
-                    periodo_valido = True
-                else:
-                    self.add_error('periodo_especifico',
-                                   'Para periodo anual use: A o ANUAL')
-            if periodo_valido:
-                cleaned_data['periodo_especifico'] = periodo_especifico
-                print(f"✅ Periodo válido: {periodo_especifico}")
-            else:
-                print(f"❌ Periodo inválido: {tipo_periodo} - {periodo_especifico}")
 
     def _validate_archivo_vigente(self, cleaned_data):
         fraccion = cleaned_data.get('fraccion')

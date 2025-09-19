@@ -24,7 +24,7 @@
     <div class="collapse show" id="filtrosCollapse">
     <div class="card-body">
         <form method="get" class="row g-3" id="filtrosForm">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label for="fraccion" class="form-label">Fracción</label>
                 <select name="fraccion" id="fraccion" class="form-select">
                     <option value="">Todas las fracciones</option>
@@ -35,7 +35,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-1">
                 <label for="año" class="form-label">Año</label>
                 <select name="año" id="año" class="form-select">
                     <option value="">Todos los años</option>
@@ -46,8 +46,26 @@
                     {% endfor %}
                 </select>
             </div>
-            <!-- ✅ NUEVO FILTRO DE ESTADO -->
+            <!-- ✅ NUEVO FILTRO TIPO PERIODO -->
             <div class="col-md-2">
+                <label for="tipo_periodo" class="form-label">Tipo Periodo</label>
+                <select name="tipo_periodo" id="tipo_periodo" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="anual" {% if tipo_periodo_seleccionado == 'anual' %}selected{% endif %}>Anual</option>
+                    <option value="trimestral" {% if tipo_periodo_seleccionado == 'trimestral' %}selected{% endif %}>Trimestral</option>
+                    <option value="semestral" {% if tipo_periodo_seleccionado == 'semestral' %}selected{% endif %}>Semestral</option>
+                </select>
+            </div>
+            <!-- ✅ NUEVO FILTRO PERIODO ESPECÍFICO -->
+            <div class="col-md-2">
+                <label for="periodo_especifico" class="form-label">Periodo Específico</label>
+                <select name="periodo_especifico" id="periodo_especifico" class="form-select" {% if not tipo_periodo_seleccionado %}disabled{% endif %}>
+                    <option value="">Todos</option>
+                    <!-- Opciones se llenan con JS -->
+                </select>
+            </div>
+            <!-- ✅ NUEVO FILTRO DE ESTADO -->
+            <div class="col-md-1">
                 <label for="estado" class="form-label">Estado</label>
                 <select name="estado" id="estado" class="form-select">
                     <option value="vigente" {% if estado_seleccionado == 'vigente' or not estado_seleccionado %}selected{% endif %}>
@@ -61,7 +79,7 @@
                     </option>
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label for="busqueda" class="form-label">Buscar</label>
                 <input type="text" name="busqueda" id="busqueda" class="form-control" 
                        placeholder="Nombre del archivo..." value="{{ request.GET.busqueda }}">
@@ -98,6 +116,12 @@
                     {% endif %}
                     {% if año_seleccionado %}
                         <span class="badge bg-info">Año: {{ año_seleccionado }}</span>
+                    {% endif %}
+                    {% if tipo_periodo_seleccionado %}
+                        <span class="badge bg-dark">Tipo: {{ tipo_periodo_seleccionado|capfirst }}</span>
+                    {% endif %}
+                    {% if periodo_especifico_seleccionado %}
+                        <span class="badge bg-dark">Periodo: {{ periodo_especifico_seleccionado }}</span>
                     {% endif %}
                     {% if estado_seleccionado and estado_seleccionado != 'vigente' %}
                         <span class="badge bg-secondary">Estado: {{ estado_seleccionado|capfirst }}</span>
@@ -302,6 +326,52 @@
 
 {% block scripts %}
 <script>
+// ✅ NUEVO: JAVASCRIPT PARA FILTROS DE PERIODO
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoPeriodoSelect = document.getElementById('tipo_periodo');
+    const periodoEspecificoSelect = document.getElementById('periodo_especifico');
+
+    const periodoOpciones = JSON.parse('{{ periodo_opciones_json|safe }}');
+    const periodoEspecificoSeleccionado = '{{ periodo_especifico_seleccionado }}';
+
+    function actualizarPeriodoEspecifico() {
+        const tipoSeleccionado = tipoPeriodoSelect.value;
+        const opciones = periodoOpciones[tipoSeleccionado] || [];
+
+        // Limpiar opciones actuales
+        periodoEspecificoSelect.innerHTML = '<option value="">Todos</option>';
+
+        if (tipoSeleccionado && opciones.length > 0) {
+            opciones.forEach(opcion => {
+                const optionElement = document.createElement('option');
+                optionElement.value = opcion[0];
+                optionElement.textContent = opcion[1];
+                // Marcar como seleccionado si coincide con el valor del filtro actual
+                if (opcion[0] === periodoEspecificoSeleccionado) {
+                    optionElement.selected = true;
+                }
+                periodoEspecificoSelect.appendChild(optionElement);
+            });
+            periodoEspecificoSelect.disabled = false;
+        } else {
+            periodoEspecificoSelect.disabled = true;
+        }
+    }
+
+    // Ejecutar al cambiar el tipo de periodo
+    if (tipoPeriodoSelect) {
+        tipoPeriodoSelect.addEventListener('change', function() {
+            // Al cambiar, reseteamos el periodo específico
+            periodoEspecificoSelect.value = '';
+            actualizarPeriodoEspecifico();
+        });
+        
+        // Ejecutar al cargar la página para inicializar con los valores de filtro
+        actualizarPeriodoEspecifico();
+    }
+});
+
+
 // ✅ FUNCIÓN PARA EXPORTAR A EXCEL
 function exportarExcel() {
     console.log('📊 Iniciando exportación a Excel...');
@@ -425,7 +495,7 @@ function toggleView(viewType) {
 }
 
 // ✅ INICIALIZACIÓN
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() { // Segundo DOMContentLoaded para el resto de scripts
     // Activar vista de tabla por defecto
     document.getElementById('tableViewBtn').classList.add('active');
     

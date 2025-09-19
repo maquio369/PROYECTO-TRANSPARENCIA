@@ -10,6 +10,7 @@ from django.db.models import Count, Q, Max
 from django.utils import timezone
 from django.db import transaction
 from django.core.exceptions import ValidationError
+import json  # ✅ NUEVA IMPORTACIÓN
 import mimetypes
 import os
 from django.core.files.base import ContentFile
@@ -78,6 +79,23 @@ class CargarArchivoView(LoginRequiredMixin, CreateView):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
         return kwargs
+
+    # ✅ NUEVO: Añadir opciones de periodo al contexto
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        periodo_opciones = {
+            'anual': [('A', 'A - Anual')],
+            'trimestral': [
+                ('T1', 'T1 (Enero-Marzo)'),
+                ('T2', 'T2 (Abril-Junio)'),
+                ('T3', 'T3 (Julio-Septiembre)'),
+                ('T4', 'T4 (Octubre-Diciembre)')
+            ],
+            'semestral': [('S1', 'S1 (Enero-Junio)'), ('S2', 'S2 (Julio-Diciembre)')]
+        }
+        # ✅ CAMBIO: Convertir a JSON para pasarlo de forma segura a JavaScript
+        context['periodo_opciones_json'] = json.dumps(periodo_opciones)
+        return context
 
     def form_valid(self, form):
         # DEBUG: Imprimir datos recibidos
@@ -292,12 +310,18 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
         # Filtros adicionales
         fraccion_id = self.request.GET.get('fraccion')
         año = self.request.GET.get('año')
+        tipo_periodo = self.request.GET.get('tipo_periodo')
+        periodo_especifico = self.request.GET.get('periodo_especifico')
         
         if fraccion_id:
             queryset = queryset.filter(fraccion_id=fraccion_id)
         
         if año:
             queryset = queryset.filter(año=año)
+        if tipo_periodo:
+            queryset = queryset.filter(tipo_periodo=tipo_periodo)
+        if periodo_especifico:
+            queryset = queryset.filter(periodo_especifico=periodo_especifico)
         
         # Funcionalidad de búsqueda
         busqueda = self.request.GET.get('busqueda')
@@ -329,12 +353,27 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
             fraccion__in=fracciones
         ).values_list('año', flat=True).distinct().order_by('-año')
         
+        # ✅ NUEVO: Opciones de periodo para el filtro
+        periodo_opciones = {
+            'anual': [('A', 'A - Anual')],
+            'trimestral': [
+                ('T1', 'T1 (Enero-Marzo)'),
+                ('T2', 'T2 (Abril-Junio)'),
+                ('T3', 'T3 (Julio-Septiembre)'),
+                ('T4', 'T4 (Octubre-Diciembre)')
+            ],
+            'semestral': [('S1', 'S1 (Enero-Junio)'), ('S2', 'S2 (Julio-Diciembre)')]
+        }
+        
         context.update({
             'fracciones': fracciones,
             'años': años,
             'fraccion_seleccionada': self.request.GET.get('fraccion'),
             'año_seleccionado': self.request.GET.get('año'),
             'estado_seleccionado': self.request.GET.get('estado', 'vigente'),
+            'tipo_periodo_seleccionado': self.request.GET.get('tipo_periodo'),
+            'periodo_especifico_seleccionado': self.request.GET.get('periodo_especifico'),
+            'periodo_opciones_json': json.dumps(periodo_opciones),
             'busqueda_actual': self.request.GET.get('busqueda', ''),
         })
         
@@ -484,6 +523,10 @@ class ListadoArchivosView(LoginRequiredMixin, ListView):
                 pass
         if request.GET.get('año'):
             filtros_info.append(f"Año: {request.GET.get('año')}")
+        if request.GET.get('tipo_periodo'):
+            filtros_info.append(f"Tipo Periodo: {request.GET.get('tipo_periodo').capitalize()}")
+        if request.GET.get('periodo_especifico'):
+            filtros_info.append(f"Periodo Específico: {request.GET.get('periodo_especifico')}")
         if request.GET.get('estado'):
             estado = request.GET.get('estado')
             filtros_info.append(f"Estado: {estado.capitalize()}")

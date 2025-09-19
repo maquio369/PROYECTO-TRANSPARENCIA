@@ -53,26 +53,13 @@
                         </div>
 
                         <div class="col-md-6 mb-3">
-    <label for="{{ form.periodo_especifico.id_for_label }}" class="form-label">{{ form.periodo_especifico.label }}</label>
-    {{ form.periodo_especifico }}
-    {% if form.periodo_especifico.errors %}
-        <div class="invalid-feedback d-block">{{ form.periodo_especifico.errors.0 }}</div>
-    {% endif %}
-    
-    <!-- ✅ AYUDA DINÁMICA MEJORADA -->
-    <div class="form-text" id="periodo-help">
-        <strong>Ejemplos por tipo:</strong><br>
-        <span id="help-trimestral" style="display: block;">
-            • <strong>Trimestral:</strong> T1 (Ene-Mar), T2 (Abr-Jun), T3 (Jul-Sep), T4 (Oct-Dic)
-        </span>
-        <span id="help-semestral" style="display: none;">
-            • <strong>Semestral:</strong> S1 (Ene-Jun), S2 (Jul-Dic)
-        </span>
-        <span id="help-anual" style="display: none;">
-            • <strong>Anual:</strong> A o ANUAL (Todo el año)
-        </span>
-    </div>
-</div>
+                            <label for="{{ form.periodo_especifico.id_for_label }}" class="form-label">{{ form.periodo_especifico.label }}</label>
+                            {{ form.periodo_especifico }}
+                            {% if form.periodo_especifico.errors %}
+                                <div class="invalid-feedback d-block">{{ form.periodo_especifico.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Selecciona el periodo específico. Las opciones cambiarán según el "Tipo de Periodo".</div>
+                        </div>
                     </div>
 
                     <!-- ✅ CAMPO DE ARCHIVO CORREGIDO -->
@@ -163,36 +150,44 @@
 
 
     document.addEventListener('DOMContentLoaded', function() {
-    const tipoPeriodoSelect = document.getElementById('id_tipo_periodo');
-    const añoInput = document.getElementById('id_año');
-    
-    // Función para mostrar ayuda según el tipo seleccionado
-    function actualizarAyuda() {
-        const tipoSeleccionado = tipoPeriodoSelect.value;
-        
-        // Ocultar todas las ayudas
-        document.getElementById('help-trimestral').style.display = 'none';
-        document.getElementById('help-semestral').style.display = 'none';
-        document.getElementById('help-anual').style.display = 'none';
-        
-        // Mostrar ayuda correspondiente
-        if (tipoSeleccionado === 'trimestral') {
-            document.getElementById('help-trimestral').style.display = 'block';
-        } else if (tipoSeleccionado === 'semestral') {
-            document.getElementById('help-semestral').style.display = 'block';
-        } else if (tipoSeleccionado === 'anual') {
-            document.getElementById('help-anual').style.display = 'block';
+        const tipoPeriodoSelect = document.getElementById('id_tipo_periodo');
+        const periodoEspecificoSelect = document.getElementById('id_periodo_especifico');
+        const añoInput = document.getElementById('id_año');
+
+        // ✅ Opciones de periodo pasadas desde la vista de Django
+        const periodoOpciones = JSON.parse('{{ periodo_opciones_json|safe }}');
+
+        function actualizarPeriodoEspecifico() {
+            const tipoSeleccionado = tipoPeriodoSelect.value;
+            const opciones = periodoOpciones[tipoSeleccionado] || [];
+
+            // Limpiar opciones actuales
+            periodoEspecificoSelect.innerHTML = '';
+
+            // Añadir nuevas opciones
+            if (opciones.length > 0) {
+                opciones.forEach(opcion => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = opcion[0];
+                    optionElement.textContent = opcion[1];
+                    periodoEspecificoSelect.appendChild(optionElement);
+                });
+                periodoEspecificoSelect.disabled = false;
+            } else {
+                const optionElement = document.createElement('option');
+                optionElement.textContent = 'Selecciona un tipo de periodo primero';
+                periodoEspecificoSelect.appendChild(optionElement);
+                periodoEspecificoSelect.disabled = true;
+            }
+            console.log(`💡 Opciones de periodo específico actualizadas para: ${tipoSeleccionado}`);
         }
-        
-        console.log(`💡 Ayuda actualizada para: ${tipoSeleccionado}`);
-    }
-    
+
     // Ejecutar al cambiar el tipo de periodo
     if (tipoPeriodoSelect) {
-        tipoPeriodoSelect.addEventListener('change', actualizarAyuda);
+        tipoPeriodoSelect.addEventListener('change', actualizarPeriodoEspecifico);
         
         // Ejecutar al cargar la página para mostrar la ayuda del valor por defecto
-        actualizarAyuda();
+        actualizarPeriodoEspecifico();
     }
     
     // Mostrar valor por defecto en consola para debug
