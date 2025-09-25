@@ -215,7 +215,7 @@
                                     </a>
                                     <button type="button" 
                                             class="btn btn-info btn-sm"
-                                            onclick="copiarEnlaceRapido('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
+                                            onclick="copiarEnlacePublico('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
                                             title="Compartir enlace">
                                         <i class="bi bi-share"></i>
                                     </button>
@@ -264,7 +264,7 @@
                                     </a>
                                     <button type="button" 
                                             class="btn btn-info btn-sm"
-                                            onclick="copiarEnlaceRapido('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
+                                            onclick="copiarEnlacePublico('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
                                             title="Compartir enlace">
                                         <i class="bi bi-share"></i>
                                     </button>
@@ -419,17 +419,49 @@ function exportarExcel() {
     }, 3000);
 }
 
-// ✅ FUNCIÓN PARA COPIAR ENLACE RÁPIDO
-async function copiarEnlaceRapido(archivoId, nombreArchivo) {
+// ✅ FUNCIÓN UNIFICADA PARA COPIAR ENLACE PÚBLICO (CON FALLBACK)
+async function copiarEnlacePublico(archivoId, nombreArchivo) {
     const enlacePublico = `${window.location.protocol}//${window.location.host}/publico/archivo/${archivoId}/`;
     
     try {
+        // La API navigator.clipboard solo funciona en contextos seguros (HTTPS) o localhost.
+        if (!navigator.clipboard) {
+            throw new Error('navigator.clipboard no está disponible.');
+        }
+
+        // Intento con el método moderno
         await navigator.clipboard.writeText(enlacePublico);
         mostrarNotificacion(`Enlace de "${nombreArchivo}" copiado`, 'success');
         console.log('✅ Enlace copiado:', enlacePublico);
+
     } catch (err) {
-        console.error('❌ Error copiando enlace:', err);
-        mostrarNotificacion('Error al copiar enlace', 'danger');
+        console.warn(`⚠️ Error con API Clipboard: ${err.message}. Usando fallback...`);
+
+        // Fallback para navegadores antiguos o contextos no seguros (HTTP)
+        try {
+            const inputTemporal = document.createElement('textarea');
+            inputTemporal.value = enlacePublico;
+            inputTemporal.style.position = 'absolute';
+            inputTemporal.style.left = '-9999px';
+            document.body.appendChild(inputTemporal);
+            
+            inputTemporal.select();
+            inputTemporal.setSelectionRange(0, 99999); // Para móviles
+            
+            const exitoso = document.execCommand('copy');
+            document.body.removeChild(inputTemporal);
+
+            if (exitoso) {
+                mostrarNotificacion(`Enlace de "${nombreArchivo}" copiado`, 'success');
+                console.log('✅ Enlace copiado (fallback)');
+            } else {
+                throw new Error('execCommand falló');
+            }
+
+        } catch (fallbackErr) {
+            console.error('❌ Error en todos los métodos de copia:', fallbackErr);
+            mostrarNotificacion('Error al copiar enlace', 'danger');
+        }
     }
 }
 
@@ -440,7 +472,7 @@ function mostrarNotificacion(mensaje, tipo = 'info') {
     
     const toastHTML = `
         <div id="${toastId}" class="toast align-items-center text-bg-${tipo} border-0" role="alert">
-            <div class="d-flex">
+            <div class="d-flex ">
                 <div class="toast-body">
                     <i class="bi bi-${tipo === 'success' ? 'check-circle-fill' : 'info-circle-fill'} me-2"></i>
                     ${mensaje}

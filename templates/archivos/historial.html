@@ -102,7 +102,7 @@
                                 </a>
                                 <button type="button" 
                                         class="btn btn-info btn-sm"
-                                        onclick="copiarEnlaceDirecto('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
+                                        onclick="copiarEnlacePublico('{{ archivo.id }}', '{{ archivo.nombre_original }}')"
                                         title="Copiar enlace público del archivo">
                                     <i class="bi bi-share"></i> Compartir
                                 </button>
@@ -198,8 +198,8 @@
 
 {% block scripts %}
 <script>
-// ✅ FUNCIÓN SIMPLIFICADA PARA COPIAR ENLACE DIRECTO
-async function copiarEnlaceDirecto(archivoId, nombreArchivo) {
+// ✅ FUNCIÓN UNIFICADA PARA COPIAR ENLACE PÚBLICO (CON FALLBACK)
+async function copiarEnlacePublico(archivoId, nombreArchivo) {
     // Construir URL pública del archivo
     const enlacePublico = `${window.location.protocol}//${window.location.host}/publico/archivo/${archivoId}/`;
     
@@ -207,17 +207,22 @@ async function copiarEnlaceDirecto(archivoId, nombreArchivo) {
     console.log(`🔗 URL: ${enlacePublico}`);
     
     try {
+        // La API navigator.clipboard solo funciona en contextos seguros (HTTPS) o localhost.
+        if (!navigator.clipboard) {
+            throw new Error('navigator.clipboard no está disponible.');
+        }
+
         // Copiar al portapapeles usando API moderna
         await navigator.clipboard.writeText(enlacePublico);
         
         // Mostrar notificación de éxito
-        mostrarNotificacionCopia(nombreArchivo, true);
+        mostrarNotificacion(`Enlace de "${nombreArchivo}" copiado`, 'success');
         
         console.log('✅ Enlace copiado exitosamente');
         
     } catch (err) {
-        console.log('⚠️ Fallback: Intentando método de selección');
-        
+        console.warn(`⚠️ Error con API Clipboard: ${err.message}. Usando fallback...`);
+
         // Fallback para navegadores antiguos
         try {
             // Crear input temporal
@@ -233,7 +238,7 @@ async function copiarEnlaceDirecto(archivoId, nombreArchivo) {
             document.body.removeChild(inputTemporal);
             
             if (exitoso) {
-                mostrarNotificacionCopia(nombreArchivo, true);
+                mostrarNotificacion(`Enlace de "${nombreArchivo}" copiado`, 'success');
                 console.log('✅ Enlace copiado (fallback)');
             } else {
                 throw new Error('execCommand falló');
@@ -241,25 +246,23 @@ async function copiarEnlaceDirecto(archivoId, nombreArchivo) {
             
         } catch (fallbackErr) {
             console.error('❌ Error en todos los métodos de copia:', fallbackErr);
-            mostrarNotificacionCopia(nombreArchivo, false);
+            mostrarNotificacion(`Error al copiar enlace`, 'danger');
             
             // Mostrar enlace para copia manual
             mostrarEnlaceManual(enlacePublico, nombreArchivo);
         }
     }
 }
-
-// ✅ MOSTRAR NOTIFICACIÓN DE COPIA
-function mostrarNotificacionCopia(nombreArchivo, exitoso) {
-    const mensaje = exitoso 
-        ? `Enlace de "${nombreArchivo}" copiado al portapapeles`
-        : `Error al copiar enlace de "${nombreArchivo}"`;
     
-    const icono = exitoso ? 'check-circle-fill' : 'exclamation-triangle-fill';
-    const color = exitoso ? 'success' : 'danger';
+// ✅ FUNCIÓN PARA MOSTRAR NOTIFICACIONES (TOASTS)
+function mostrarNotificacion(mensaje, tipo = 'info') {
+    const container = obtenerContainerToast();
+    const toastId = 'toast-' + Date.now();
+    
+    const icono = tipo === 'success' ? 'check-circle-fill' : (tipo === 'danger' ? 'exclamation-triangle-fill' : 'info-circle-fill');
+    const color = tipo;
     
     // Crear toast
-    const toastId = 'toast-' + Date.now();
     const toastHTML = `
         <div id="${toastId}" class="toast align-items-center text-bg-${color} border-0" role="alert">
             <div class="d-flex">
@@ -273,8 +276,7 @@ function mostrarNotificacionCopia(nombreArchivo, exitoso) {
         </div>
     `;
     
-    // Agregar al contenedor
-    const container = obtenerContainerToast();
+    // Agregar al contenedor y mostrar
     container.insertAdjacentHTML('beforeend', toastHTML);
     
     // Mostrar toast
@@ -363,7 +365,7 @@ function obtenerContainerToast() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔗 Sistema de enlaces públicos inicializado');
     
-    // Crear contenedor de toasts
+    // Asegurar que el contenedor de toasts exista al cargar la página
     obtenerContainerToast();
     
     console.log('📋 Funcionalidad de copia directa lista');
